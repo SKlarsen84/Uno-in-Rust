@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq)]
+use serde::Serialize;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Color {
     Red,
     Yellow,
@@ -7,7 +9,7 @@ pub enum Color {
     Wild,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Value {
     Number(u8),
     Skip,
@@ -17,7 +19,7 @@ pub enum Value {
     WildDrawFour,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Card {
     pub color: Color,
     pub value: Value,

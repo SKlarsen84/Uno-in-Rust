@@ -32,7 +32,7 @@ impl Lobby {
         game_id
     }
 
-    pub fn join_game(&mut self, game_id: usize, player: Player) -> Result<(), String> {
+    pub fn join_game(&mut self, game_id: usize, player: &Player) -> Result<(), String> {
         if let Some(game) = self.games.get_mut(&game_id) {
             game.add_player(player.clone())?;
 

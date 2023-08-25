@@ -1,6 +1,8 @@
 use futures::SinkExt;
 use futures::StreamExt;
 use serde::Deserialize;
+use serde::Serialize;
+
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
@@ -10,6 +12,7 @@ use warp::ws::{Message, WebSocket}; // Import Deserialize trait
 
 use crate::lobby::Lobby;
 use crate::player::Player;
+use crate::player::SerializablePlayer;
 
 // Derive Deserialize for ClientMessage
 #[derive(Deserialize)]
@@ -18,21 +21,26 @@ enum ClientMessage {
     PlayCard { card: usize },
 }
 
+#[derive(Serialize)]
+enum ServerMessage {
+    PlayerJoined { player: SerializablePlayer }, // Now includes the entire Player object
+                                                 // ... other variants
+}
+
 pub async fn handle_connection(ws: WebSocket, lobby: Arc<Mutex<Lobby>>) {
     let (mut user_ws_tx, mut user_ws_rx) = ws.split();
-
+    let (tx, mut rx): (UnboundedSender<String>, UnboundedReceiver<String>) =
+        mpsc::unbounded_channel();
     // Generate a random player id and create a new player
     let player_id = rand::random::<usize>();
-    let player = Player::new(player_id);
+    let player = Player::new(player_id, tx.clone());
+    let player_clone = player.clone(); // Clone the player before the loop
 
-    // Add the new player to the lobby
     {
         let mut lobby = lobby.lock().unwrap();
         lobby.add_player(player.clone());
     }
 
-    let (tx, mut rx): (UnboundedSender<String>, UnboundedReceiver<String>) =
-        mpsc::unbounded_channel();
     task::spawn(async move {
         while let Some(message) = rx.recv().await {
             let _ = user_ws_tx.send(Message::text(message)).await;
@@ -50,8 +58,18 @@ pub async fn handle_connection(ws: WebSocket, lobby: Arc<Mutex<Lobby>>) {
 
                     match client_msg {
                         ClientMessage::JoinGame { game_id } => {
-                            match lobby.join_game(game_id, player.clone()) {
+                            match lobby.join_game(game_id, &player_clone) {
                                 Ok(_) => {
+                                    // Notify all players in the game that a new player has joined
+                                    let game = lobby.get_game(game_id).unwrap();
+                                    for p in game.get_all_players() {
+                                        let msg = ServerMessage::PlayerJoined {
+                                            player: player_clone.clone().to_serializable(),
+                                        };
+                                        let response = json!(msg);
+                                        p.tx.send(response.to_string()).unwrap();
+                                        // Assuming each Player has a tx (transmitter)
+                                    }
                                     let response = json!({
                                         "type": "JoinGameResponse",
                                         "success": true

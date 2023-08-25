@@ -1,3 +1,4 @@
+
 use crate::{
     card::{Card, Value},
     deck::Deck,
@@ -152,5 +153,9 @@ impl GameState {
 
     pub fn get_player(&self, player_id: usize) -> Option<&Player> {
         self.players.iter().find(|p| p.id == player_id)
+    }
+
+    pub fn get_all_players(&self) -> &Vec<Player> {
+        &self.players
     }
 }
