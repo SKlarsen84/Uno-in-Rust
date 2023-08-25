@@ -1,14 +1,19 @@
-struct Deck {
-    cards: Vec<Card>,
+use rand::seq::SliceRandom;
+
+use crate::card::{Card, Color};
+use crate::card::Value;
+
+pub(crate) struct Deck {
+   pub cards: Vec<Card>,
 }
 
 impl Deck {
     pub fn new() -> Self {
         let mut cards = Vec::new();
-        for &color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue] {
+        for &color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue, Color::Wild] {
             for value in 0..10 {
                 cards.push(Card {
-                    color: Some(color),
+                    color,
                     value: Value::Number(value),
                 });
             }
@@ -28,6 +33,10 @@ impl Deck {
 
     pub fn draw_n(&mut self, n: usize) -> Vec<Card> {
         (0..n).filter_map(|_| self.draw()).collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.cards.is_empty()
     }
 }
 

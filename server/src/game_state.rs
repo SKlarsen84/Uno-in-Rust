@@ -1,6 +1,13 @@
+use crate::{
+    card::{Card, Value},
+    deck::Deck,
+    lobby::Lobby,
+    player::Player,
+};
 
-struct GameState {
-    players: Vec<Player>,
+pub(crate) struct GameState {
+    players: Vec<Player>, // Now just storing players
+
     deck: Deck,
     discard_pile: Vec<Card>,
     current_turn: usize,
@@ -13,10 +20,6 @@ impl GameState {
         deck.shuffle();
 
         let mut players = Vec::new();
-        for id in 0..num_players {
-            let hand = deck.draw_n(7); // Draw 7 cards for each player
-            players.push(Player { id, hand });
-        }
 
         let discard_pile = vec![deck.draw().unwrap()]; // Draw the initial card
         let current_turn = 0;
@@ -127,5 +130,27 @@ impl GameState {
             Value::Wild | Value::WildDrawFour => true,
             _ => card.color == top_card.color || card.value == top_card.value,
         }
+    }
+
+    pub fn add_player(&mut self, player: Player) -> Result<(), &'static str> {
+        if self.players.len() < 10 {
+            self.players.push(player);
+            Ok(())
+        } else {
+            Err("Game is full")
+        }
+    }
+
+    pub fn remove_player(&mut self, player_id: usize) -> Result<(), &'static str> {
+        if let Some(pos) = self.players.iter().position(|p| p.id == player_id) {
+            self.players.remove(pos);
+            Ok(())
+        } else {
+            Err("Player not found")
+        }
+    }
+
+    pub fn get_player(&self, player_id: usize) -> Option<&Player> {
+        self.players.iter().find(|p| p.id == player_id)
     }
 }

@@ -4,6 +4,7 @@ pub enum Color {
     Yellow,
     Green,
     Blue,
+    Wild,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,8 +17,8 @@ pub enum Value {
     WildDrawFour,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Card {
-    pub color: Option<Color>,
+    pub color: Color,
     pub value: Value,
 }
