@@ -58,7 +58,7 @@ pub async fn handle_connection(ws: WebSocket, lobby: Arc<Mutex<Lobby>>) {
 
                     match client_msg {
                         ClientMessage::JoinGame { game_id } => {
-                            match lobby.join_game(game_id, &player_clone) {
+                            match lobby.join_game(game_id, player_clone.clone()) {
                                 Ok(_) => {
                                     // Notify all players in the game that a new player has joined
                                     let game = lobby.get_game(game_id).unwrap();
