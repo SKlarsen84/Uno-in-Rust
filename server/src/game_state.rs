@@ -1,8 +1,6 @@
-
 use crate::{
     card::{Card, Value},
     deck::Deck,
-    lobby::Lobby,
     player::Player,
 };
 
@@ -16,11 +14,11 @@ pub(crate) struct GameState {
 }
 
 impl GameState {
-    pub fn new(num_players: usize) -> Self {
+    pub fn new(_num_players: usize) -> Self {
         let mut deck = Deck::new();
         deck.shuffle();
 
-        let mut players = Vec::new();
+        let players = Vec::new();
 
         let discard_pile = vec![deck.draw().unwrap()]; // Draw the initial card
         let current_turn = 0;
@@ -46,11 +44,16 @@ impl GameState {
             return Err("Invalid play");
         }
 
+        // Step 1: Find the position of the card in the player's hand
+        let pos_option = {
+            let player = &self.players[player_id];
+            player.hand.iter().position(|c| *c == card)
+        };
+
         // Check if the card is in the player's hand
-        let player = &mut self.players[player_id];
-        if let Some(pos) = player.hand.iter().position(|&c| c == card) {
+        if let Some(pos) = pos_option {
             self.apply_card_effect(&card);
-            // Remove the card from the player's hand
+            let player = &mut self.players[player_id];
             player.hand.remove(pos);
 
             // Add the card to the discard pile
