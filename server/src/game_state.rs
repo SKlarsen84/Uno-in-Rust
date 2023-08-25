@@ -136,8 +136,10 @@ impl GameState {
         }
     }
 
-    pub fn add_player(&mut self, player: Player) -> Result<(), &'static str> {
+    pub fn add_player(&mut self, mut player: Player) -> Result<(), &'static str> {
         if self.players.len() < 10 {
+            player.set_hand(self.deck.draw_n(7)); // Draw 7 cards for the new player
+
             self.players.push(player);
             Ok(())
         } else {
@@ -147,6 +149,7 @@ impl GameState {
 
     pub fn remove_player(&mut self, player_id: usize) -> Result<(), &'static str> {
         if let Some(pos) = self.players.iter().position(|p| p.id == player_id) {
+            self.players[pos].hand.clear();
             self.players.remove(pos);
             Ok(())
         } else {

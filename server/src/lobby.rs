@@ -32,9 +32,9 @@ impl Lobby {
         game_id
     }
 
-    pub fn join_game(&mut self, game_id: usize, player: &Player) -> Result<(), String> {
+    pub fn join_game(&mut self, game_id: usize, player: Player) -> Result<(), String> {
         if let Some(game) = self.games.get_mut(&game_id) {
-            game.add_player(player.clone())?;
+            game.add_player(player)?;
 
             if let Some(player) = self.players.iter_mut().find(|p| p.id == player.id) {
                 player.current_game = Some(game_id);
@@ -45,12 +45,11 @@ impl Lobby {
             Err("Game not found".to_string())
         }
     }
-
-    pub fn leave_game(&mut self, player_id: usize) -> Result<(), String> {
-        if let Some(player) = self.players.iter_mut().find(|p| p.id == player_id) {
+    pub fn leave_game(&mut self, player: Player) -> Result<(), String> {
+        if let Some(player) = self.players.iter_mut().find(|p| p.id == player.id) {
             if let Some(game_id) = player.current_game {
                 if let Some(game) = self.games.get_mut(&game_id) {
-                    game.remove_player(player.id)?;
+                    game.remove_player(player.id)?; // Pass the player ID
                     player.current_game = None;
                     Ok(())
                 } else {
