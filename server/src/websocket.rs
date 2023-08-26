@@ -38,7 +38,7 @@ pub async fn handle_connection(ws: WebSocket, lobby: Arc<Mutex<Lobby>>) {
 
     {
         let mut lobby = lobby.lock().unwrap();
-        lobby.add_player(player.clone());
+        lobby.add_player_to_lobby(player.clone());
     }
 
     task::spawn(async move {

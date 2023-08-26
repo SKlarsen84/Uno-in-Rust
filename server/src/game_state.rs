@@ -5,6 +5,7 @@ use crate::{
 };
 
 pub struct GameState {
+    pub id: usize,
     pub players: Vec<Player>, // Now just storing players
 
     deck: Deck,
@@ -14,9 +15,13 @@ pub struct GameState {
     pub round_in_progress: bool,
     pub is_waiting_for_players: bool,
 }
+pub enum GameStatus {
+    Active,
+    Empty,
+}
 
 impl GameState {
-    pub fn new(_num_players: usize) -> Self {
+    pub fn new(id: usize) -> Self {
         let mut deck = Deck::new();
         deck.shuffle();
 
@@ -27,6 +32,7 @@ impl GameState {
         let direction = 1;
 
         Self {
+            id: id,
             players,
             deck,
             discard_pile,
@@ -76,6 +82,12 @@ impl GameState {
         self.current_turn = (self.current_turn + self.direction as usize) % self.players.len();
     }
 
+    // Method to handle when all players leave
+    pub fn handle_all_players_left(&mut self) {
+        self.players.clear();
+        self.round_in_progress = false;
+    }
+
     pub fn apply_card_effect(&mut self, card: &Card) {
         match card.value {
             Value::Skip => self.next_turn(),
@@ -88,6 +100,27 @@ impl GameState {
             }
             _ => {}
         }
+    }
+
+    // Method to put the game into a "waiting" state
+    pub fn go_into_waiting_state(&mut self) {
+        self.round_in_progress = false;
+        // Don't clear the players; just wait for more to join
+    }
+
+    // Method to handle idle timeout
+    pub fn handle_idle_timeout(&mut self) {
+        // For now, just clear the players and set round_in_progress to false
+        self.players.clear();
+        self.round_in_progress = false;
+    }
+
+    // Method to handle game over
+    pub fn game_over(&mut self) {
+        // Notify players, update stats, etc.
+        // For now, just clear the players and set round_in_progress to false
+        self.players.clear();
+        self.round_in_progress = false;
     }
 
     pub fn next_player_id(&self) -> usize {
@@ -158,25 +191,23 @@ impl GameState {
             Err("Could not add player")
         }
     }
-
     pub fn remove_player(&mut self, player_id: usize) -> Result<(), &'static str> {
         if let Some(pos) = self.players.iter().position(|p| p.id == player_id) {
             self.players[pos].hand.clear();
             self.players.remove(pos);
 
-            if self.players.len() == 1 {
-                self.go_into_waiting_state();
-            }
             Ok(())
         } else {
             Err("Player not found")
         }
     }
 
-    pub fn go_into_waiting_state(&mut self) {
-        self.is_waiting_for_players = true;
-        self.round_in_progress = false;
-        // ... other resets
+    pub fn get_status(&self) -> GameStatus {
+        if self.players.is_empty() {
+            GameStatus::Empty
+        } else {
+            GameStatus::Active
+        }
     }
 
     pub fn get_player(&self, player_id: usize) -> Option<&Player> {
