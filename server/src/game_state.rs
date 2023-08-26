@@ -72,7 +72,7 @@ impl GameState {
             self.discard_pile.push(card);
 
             // Check if the player has won
-            if let Some(winner_id) = self.check_winner() {
+            if let Some(_winner_id) = self.check_winner() {
                 self.end_round();
                 return Ok(());
             }

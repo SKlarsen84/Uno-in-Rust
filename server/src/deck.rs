@@ -10,7 +10,7 @@ pub(crate) struct Deck {
 impl Deck {
     pub fn new() -> Self {
         let mut cards = Vec::new();
-        for  mut color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue] {
+        for  color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue] {
             // Add numbers from 0 to 9, twice each (except for 0)
             for value in 0..10 {
                 let card = Card {
@@ -23,7 +23,7 @@ impl Deck {
                 }
             }
             // Add special cards (Skip, Reverse, DrawTwo), twice each
-            for mut value in &[Value::Skip, Value::Reverse, Value::DrawTwo] {
+            for value in &[Value::Skip, Value::Reverse, Value::DrawTwo] {
                 let card = Card {
                     color: color.clone(),
                     value: value.clone(),
@@ -33,7 +33,7 @@ impl Deck {
             }
         }
         // Add Wild and Wild Draw Four cards, 4 each
-        for mut value in &[Value::Wild, Value::WildDrawFour] {
+        for value in &[Value::Wild, Value::WildDrawFour] {
             let card = Card {
                 color: Color::Wild,
                 value: value.clone(),
