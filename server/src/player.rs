@@ -8,7 +8,6 @@ pub struct Player {
     pub name: String,
     pub hand: Vec<Card>,
     pub current_game: Option<usize>, // Game ID or reference to the current game
-    pub tx: UnboundedSender<String>, // Add this line
     pub is_spectator: bool,
 }
 
@@ -19,13 +18,13 @@ pub struct SerializablePlayer {
 }
 
 impl Player {
-    pub fn new(id: usize, tx: UnboundedSender<String>) -> Self {
+    pub fn new(id: usize) -> Self {
         Self {
             id,
             name: format!("Player {}", id),
             hand: Vec::new(),
             current_game: None,
-            tx,
+
             is_spectator: false,
         }
     }

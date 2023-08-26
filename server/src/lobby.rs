@@ -127,9 +127,8 @@ mod tests {
         let mut lobby = Lobby::new();
         let game_id = lobby.create_game();
         //initiate a transaction channel tx for the player
-        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
 
-        let player = Player::new(0, tx);
+        let player = Player::new(0);
 
         // Test joining a game that exists
         let result = lobby.join_game(game_id, player.clone());
@@ -138,5 +137,71 @@ mod tests {
         // Test joining a game that doesn't exist
         let result = lobby.join_game(game_id + 1, player.clone());
         assert!(result.is_err());
+    }
+
+    //test create lobby
+    #[tokio::test]
+    async fn test_create_lobby() {
+        let mut lobby = Lobby::new();
+        let game_id = lobby.create_game();
+        assert_eq!(game_id, 1);
+    }
+
+    //test list games
+    #[tokio::test]
+
+    async fn test_list_games() {
+        let mut lobby = Lobby::new();
+        let game_id = lobby.create_game();
+        let game_id2 = lobby.create_game();
+        let game_id3 = lobby.create_game();
+        let game_id4 = lobby.create_game();
+        let game_id5 = lobby.create_game();
+        let game_id6 = lobby.create_game();
+        let game_id7 = lobby.create_game();
+        let game_id8 = lobby.create_game();
+        let game_id9 = lobby.create_game();
+        let game_id10 = lobby.create_game();
+        let game_id11 = lobby.create_game();
+        let game_id12 = lobby.create_game();
+        let game_id13 = lobby.create_game();
+        let game_id14 = lobby.create_game();
+        let game_id15 = lobby.create_game();
+        let game_id16 = lobby.create_game();
+        let game_id17 = lobby.create_game();
+        let game_id18 = lobby.create_game();
+        let game_id19 = lobby.create_game();
+        let game_id20 = lobby.create_game();
+        let game_id21 = lobby.create_game();
+        let game_id22 = lobby.create_game();
+        let game_id23 = lobby.create_game();
+        let game_id24 = lobby.create_game();
+        let game_id25 = lobby.create_game();
+        let game_id26 = lobby.create_game();
+        let game_id27 = lobby.create_game();
+        let game_id28 = lobby.create_game();
+        let game_id29 = lobby.create_game();
+        let game_id30 = lobby.create_game();
+        let game_id31 = lobby.create_game();
+        let game_id32 = lobby.create_game();
+        let game_id33 = lobby.create_game();
+        let game_id34 = lobby.create_game();
+        let game_id35 = lobby.create_game();
+        let game_id36 = lobby.create_game();
+        let game_id37 = lobby.create_game();
+        let game_id38 = lobby.create_game();
+        let game_id39 = lobby.create_game();
+        let game_id40 = lobby.create_game();
+        let game_id41 = lobby.create_game();
+        let game_id42 = lobby.create_game();
+        let game_id43 = lobby.create_game();
+        let game_id44 = lobby.create_game();
+        let game_id45 = lobby.create_game();
+        let game_id46 = lobby.create_game();
+        let game_id47 = lobby.create_game();
+        let game_id48 = lobby.create_game();
+
+        let games = lobby.list_games();
+        assert_eq!(games.len(), 48);
     }
 }

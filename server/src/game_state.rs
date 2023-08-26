@@ -256,8 +256,15 @@ impl GameState {
     }
 
     pub fn end_round(&mut self) {
+        for player in &mut self.players {
+            player.hand.clear();
+        }
+        self.deck = Deck::new();
+        self.deck.shuffle();
         self.round_in_progress = false;
-
+        self.players.clear();
+        self.discard_pile = vec![self.deck.draw().unwrap()];
+        self.current_turn = 0;
         // Reset game state for next round
     }
 
@@ -279,5 +286,75 @@ impl GameState {
         self.deck.shuffle();
         self.discard_pile = vec![self.deck.draw().unwrap()];
         self.current_turn = 0;
+    }
+}
+
+//tests
+
+#[cfg(test)]
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_game_state_new() {
+        let game_state = GameState::new(0);
+        assert_eq!(game_state.players.len(), 0);
+        assert_eq!(game_state.deck.cards.len(), 107);
+        assert_eq!(game_state.discard_pile.len(), 1);
+        assert_eq!(game_state.current_turn, 0);
+        assert_eq!(game_state.direction, 1);
+        assert_eq!(game_state.round_in_progress, false);
+        assert_eq!(game_state.is_waiting_for_players, true);
+    }
+
+    #[test]
+    fn test_game_state_add_player() {
+        let mut game_state = GameState::new(0);
+
+        let player = Player::new(0);
+        game_state.add_player(player).unwrap();
+        assert_eq!(game_state.players.len(), 1);
+    }
+
+    #[test]
+    fn test_game_state_remove_player() {
+        let mut game_state = GameState::new(0);
+
+        let player = Player::new(0);
+        game_state.add_player(player).unwrap();
+        game_state.remove_player(0).unwrap();
+        assert_eq!(game_state.players.len(), 0);
+    }
+
+    #[test]
+    fn test_game_state_start_round() {
+        let mut game_state = GameState::new(0);
+
+        let player = Player::new(0);
+        game_state.add_player(player).unwrap();
+
+        let playerT = Player::new(1);
+        game_state.add_player(playerT).unwrap();
+        game_state.start_round();
+        assert_eq!(game_state.round_in_progress, true);
+        assert_eq!(game_state.players[0].hand.len(), 7);
+        assert_eq!(game_state.players[1].hand.len(), 7);
+    }
+
+    #[test]
+    fn test_game_state_end_round() {
+        let mut game_state = GameState::new(0);
+
+        let player = Player::new(0);
+        game_state.add_player(player).unwrap();
+
+        let playerT = Player::new(1);
+        game_state.add_player(playerT).unwrap();
+        game_state.start_round();
+        game_state.end_round();
+        assert_eq!(game_state.round_in_progress, false);
+        assert_eq!(game_state.players[0].hand.len(), 0);
+        assert_eq!(game_state.players[1].hand.len(), 0);
     }
 }
