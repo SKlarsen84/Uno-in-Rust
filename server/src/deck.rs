@@ -10,10 +10,10 @@ pub(crate) struct Deck {
 impl Deck {
     pub fn new() -> Self {
         let mut cards = Vec::new();
-        for &color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue, Color::Wild] {
+        for mut color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue, Color::Wild] {
             for value in 0..10 {
                 cards.push(Card {
-                    color,
+                    color: color.clone(),
                     value: Value::Number(value),
                 });
             }

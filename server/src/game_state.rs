@@ -4,13 +4,15 @@ use crate::{
     player::Player,
 };
 
-pub(crate) struct GameState {
-    players: Vec<Player>, // Now just storing players
+pub struct GameState {
+    pub players: Vec<Player>, // Now just storing players
 
     deck: Deck,
     discard_pile: Vec<Card>,
     current_turn: usize,
     direction: i8, // 1 for clockwise, -1 for counter-clockwise
+    pub round_in_progress: bool,
+    pub is_waiting_for_players: bool,
 }
 
 impl GameState {
@@ -30,6 +32,8 @@ impl GameState {
             discard_pile,
             current_turn,
             direction,
+            round_in_progress: false,
+            is_waiting_for_players: true,
         }
     }
 
@@ -137,13 +141,21 @@ impl GameState {
     }
 
     pub fn add_player(&mut self, mut player: Player) -> Result<(), &'static str> {
-        if self.players.len() < 10 {
+        if self.players.len() >= 6 {
+            return Err("Game is full");
+        }
+
+        if self.round_in_progress {
+            player.is_spectator = true;
+        }
+
+        if !self.round_in_progress {
             player.set_hand(self.deck.draw_n(7)); // Draw 7 cards for the new player
 
             self.players.push(player);
             Ok(())
         } else {
-            Err("Game is full")
+            Err("Could not add player")
         }
     }
 
@@ -151,10 +163,20 @@ impl GameState {
         if let Some(pos) = self.players.iter().position(|p| p.id == player_id) {
             self.players[pos].hand.clear();
             self.players.remove(pos);
+
+            if self.players.len() == 1 {
+                self.go_into_waiting_state();
+            }
             Ok(())
         } else {
             Err("Player not found")
         }
+    }
+
+    pub fn go_into_waiting_state(&mut self) {
+        self.is_waiting_for_players = true;
+        self.round_in_progress = false;
+        // ... other resets
     }
 
     pub fn get_player(&self, player_id: usize) -> Option<&Player> {
@@ -163,5 +185,45 @@ impl GameState {
 
     pub fn get_all_players(&self) -> &Vec<Player> {
         &self.players
+    }
+
+    pub fn check_and_start_round(&mut self) {
+        if self.players.len() >= 2 && !self.round_in_progress {
+            self.is_waiting_for_players = false;
+            self.start_round();
+        }
+    }
+
+    pub fn start_round(&mut self) {
+        if self.players.len() >= 2 {
+            self.round_in_progress = true;
+            self.direction = 1;
+            self.deck = Deck::new();
+            self.deck.shuffle();
+            self.discard_pile = vec![self.deck.draw().unwrap()];
+            self.current_turn = 0;
+
+            for player in &mut self.players {
+                player.is_spectator = false;
+            }
+
+            for player in &mut self.players {
+                player.set_hand(self.deck.draw_n(7));
+            }
+        }
+    }
+
+    pub fn end_round(&mut self) {
+        self.round_in_progress = false;
+        // Reset game state for next round
+    }
+
+    pub fn end_game(&mut self) {
+        self.round_in_progress = false;
+        self.players.clear();
+        self.deck = Deck::new();
+        self.deck.shuffle();
+        self.discard_pile = vec![self.deck.draw().unwrap()];
+        self.current_turn = 0;
     }
 }

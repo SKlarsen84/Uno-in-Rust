@@ -9,6 +9,7 @@ pub struct Player {
     pub hand: Vec<Card>,
     pub current_game: Option<usize>, // Game ID or reference to the current game
     pub tx: UnboundedSender<String>, // Add this line
+    pub is_spectator: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -25,6 +26,7 @@ impl Player {
             hand: Vec::new(),
             current_game: None,
             tx,
+            is_spectator: false,
         }
     }
 
