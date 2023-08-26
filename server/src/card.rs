@@ -37,3 +37,4 @@ pub struct Card {
     pub color: Color,
     pub value: Value,
 }
+

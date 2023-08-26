@@ -262,7 +262,6 @@ impl GameState {
         self.deck = Deck::new();
         self.deck.shuffle();
         self.round_in_progress = false;
-        self.players.clear();
         self.discard_pile = vec![self.deck.draw().unwrap()];
         self.current_turn = 0;
         // Reset game state for next round
@@ -334,8 +333,8 @@ mod tests {
         let player = Player::new(0);
         game_state.add_player(player).unwrap();
 
-        let playerT = Player::new(1);
-        game_state.add_player(playerT).unwrap();
+        let player_t = Player::new(1);
+        game_state.add_player(player_t).unwrap();
         game_state.start_round();
         assert_eq!(game_state.round_in_progress, true);
         assert_eq!(game_state.players[0].hand.len(), 7);
@@ -349,8 +348,8 @@ mod tests {
         let player = Player::new(0);
         game_state.add_player(player).unwrap();
 
-        let playerT = Player::new(1);
-        game_state.add_player(playerT).unwrap();
+        let player_t = Player::new(1);
+        game_state.add_player(player_t).unwrap();
         game_state.start_round();
         game_state.end_round();
         assert_eq!(game_state.round_in_progress, false);
