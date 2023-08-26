@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use lobby::Lobby;
 use tokio::sync::Mutex;
-use tokio_tungstenite::WebSocketStream;
+use warp::ws::WebSocket;
 use warp::Filter;
 
 #[tokio::main]
@@ -20,10 +20,8 @@ async fn main() {
     // Create a channel for sending commands to the Lobby
     let (lobby_tx, mut lobby_rx) = tokio::sync::mpsc::channel(32); // 32 is the buffer size
 
-    // Clone the lobby and lobby_tx for the spawned task
-    let task_lobby = lobby.clone();
     let lobby_clone = lobby.clone();
-    let lobby_tx_clone = lobby_tx.clone();
+
     // Spawn the task
     tokio::spawn(async move {
         while let Some(command) = lobby_rx.recv().await {
@@ -37,11 +35,10 @@ async fn main() {
     let ws_route = warp::path("ws")
         .and(warp::ws())
         .and(warp::any().map(move || lobby.clone()))
-        .map(move |ws: warp::ws::Ws, lobby: Arc<Mutex<Lobby>>| {
-            let lobby_tx_inner = lobby_tx.clone(); // Clone inside the closure
-            ws.on_upgrade(move |ws| {
-                let ws_stream = WebSocketStream::from_raw_socket(ws, None, None);
-                websocket::handle_connection(ws_stream, lobby_tx_inner.clone()) // Clone again here
+        .map(move |ws: warp::ws::Ws, _lobby: Arc<Mutex<Lobby>>| {
+            let lobby_tx_clone = lobby_tx.clone(); // Clone the sender here
+            ws.on_upgrade(move |ws: WebSocket| {
+                websocket::handle_connection(ws, lobby_tx_clone.clone()) // Clone again here
             })
         });
 
