@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     card::{Card, Value},
     deck::Deck,
@@ -68,6 +70,12 @@ impl GameState {
 
             // Add the card to the discard pile
             self.discard_pile.push(card);
+
+            // Check if the player has won
+            if let Some(winner_id) = self.check_winner() {
+                self.end_round();
+                return Ok(());
+            }
 
             // Move to the next turn
             self.next_turn();
@@ -241,12 +249,27 @@ impl GameState {
             for player in &mut self.players {
                 player.set_hand(self.deck.draw_n(7));
             }
+
+            //pick a random player to start
+            self.current_turn = rand::random::<usize>() % self.players.len();
         }
     }
 
     pub fn end_round(&mut self) {
         self.round_in_progress = false;
+
         // Reset game state for next round
+    }
+
+    pub fn calculate_points(&self) -> HashMap<usize, i32> {
+        let mut points = HashMap::new();
+
+        for player in &self.players {
+            let player_points: i32 = player.hand.iter().map(|card| card.value.to_points()).sum();
+            points.insert(player.id, player_points);
+        }
+
+        points
     }
 
     pub fn end_game(&mut self) {

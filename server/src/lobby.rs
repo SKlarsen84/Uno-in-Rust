@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     game_state::{GameState, GameStatus},
     player::Player,
+    websocket::LobbyCommand,
 };
 
 pub struct Lobby {
@@ -101,5 +102,41 @@ impl Lobby {
     // list all games in the lobby
     pub fn list_games(&self) -> Vec<usize> {
         self.games.keys().cloned().collect()
+    }
+
+    pub async fn handle_command(&mut self, command: LobbyCommand) -> Result<(), String> {
+        match command {
+            LobbyCommand::JoinGame { game_id, player_id } => {
+                // Find the player and the game, then try to join
+                if let Some(player) = self.players.iter().find(|p| p.id == player_id) {
+                    self.join_game(game_id, player.clone())
+                } else {
+                    Err("Player not found".to_string())
+                }
+            } // Add more commands as needed
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_join_game() {
+        let mut lobby = Lobby::new();
+        let game_id = lobby.create_game();
+        //initiate a transaction channel tx for the player
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+
+        let player = Player::new(0, tx);
+
+        // Test joining a game that exists
+        let result = lobby.join_game(game_id, player.clone());
+        assert!(result.is_ok());
+
+        // Test joining a game that doesn't exist
+        let result = lobby.join_game(game_id + 1, player.clone());
+        assert!(result.is_err());
     }
 }

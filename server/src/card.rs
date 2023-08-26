@@ -1,6 +1,6 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Color {
     Red,
     Yellow,
@@ -9,7 +9,7 @@ pub enum Color {
     Wild,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Number(u8),
     Skip,
@@ -19,7 +19,20 @@ pub enum Value {
     WildDrawFour,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+impl Value {
+    pub fn to_points(&self) -> i32 {
+        match self {
+            Value::Number(n) => *n as i32,
+            Value::Skip => 20,
+            Value::Reverse => 20,
+            Value::DrawTwo => 20,
+            Value::Wild => 50,
+            Value::WildDrawFour => 50,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Card {
     pub color: Color,
     pub value: Value,
