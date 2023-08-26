@@ -2,6 +2,7 @@ use futures_util::StreamExt;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 
+
 use crate::card::Card;
 
 #[derive(Deserialize)]
@@ -30,9 +31,9 @@ pub async fn handle_connection(
                 continue;
             }
         };
-        if msg.is_text() || msg.is_binary() {
+        if msg.is_text()  {
             //convert the message to a string
-            let text = msg.to_str().unwrap();
+            let text = msg.to_str().unwrap_or_default();
             let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
             if client_msg.is_err() {
                 // Handle parsing error
