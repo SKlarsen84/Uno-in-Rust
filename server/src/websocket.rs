@@ -1,11 +1,19 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use crate::card::Card;
+use crate::lobby::Lobby;
 use crate::player;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
+use warp::filters::ws::Message;
+use warp::ws::WebSocket;
+
 use rand::Rng;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender as TokioSender;
+use tokio::sync::Mutex;
 
 #[derive(Deserialize)]
 pub struct ClientMessage {
@@ -16,6 +24,7 @@ pub struct ClientMessage {
 pub enum LobbyCommand {
     JoinGame { game_id: usize, player_id: usize },
     FetchGames { response: TokioSender<String> },
+    CreateGame { player_id: usize },
     // Add more commands as needed
 }
 
@@ -25,23 +34,20 @@ fn generate_player_id() -> usize {
     rng.gen()
 }
 
-pub async fn handle_connection(
-    ws_stream: warp::ws::WebSocket,
-    lobby_tx: mpsc::Sender<LobbyCommand>,
-) {
-    let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-
+pub async fn handle_connection(mut ws: WebSocket, lobby: Arc<Mutex<Lobby>>) {
     // Generate a player_id for this connection
     let player_id = generate_player_id(); // Implement this function to generate a unique ID
     let player = player::Player::new(player_id);
 
     // Inform the client of their player_id by sending them a JSON with { "id": <player_id> }
-    let player_id_json = serde_json::to_string(&player_id).unwrap();
-    let _ = ws_sender
-        .send(warp::ws::Message::text(player_id_json))
-        .await;
 
-    while let Some(result) = ws_receiver.next().await {
+    // Inform the client of their player_id
+    let player_id_json = serde_json::to_string(&player_id).unwrap();
+    ws.send(Message::text(player_id_json))
+        .await
+        .expect("Failed to send message");
+
+    while let Some(result) = ws.next().await {
         let msg = match result {
             Ok(msg) => msg,
             Err(_) => {
@@ -60,30 +66,41 @@ pub async fn handle_connection(
             }
             let client_msg = client_msg.unwrap();
 
+            //no matter what our action merits of response, we need to send a response with a json eg {"sv": xxxx, "data": xxx
+
             match client_msg.action.as_str() {
                 "fetch_games" => {
-                    let (response_tx, mut response_rx) = mpsc::channel(1);
-                    let _ = lobby_tx
-                        .send(LobbyCommand::FetchGames {
-                            response: response_tx,
+                    println!("received fetch_games websocket action");
+                    let mut lobby = lobby.lock().await;
+                    let games = lobby.list_games();
+                    // Send the list of games back to the client
+                    let game_list = serde_json::to_string(&games).unwrap();
+                    let response = format!("{{\"sv\": \"fetch_games\", \"data\": {}}}", game_list);
+
+                    // Lock the mutex to get mutable access to the SplitSink
+
+                    let _ = ws.send(warp::ws::Message::text(response)).await;
+                }
+
+                "join_game" => {
+                    println!("received join_game websocket action");
+                    // Send a command to the Lobby to join a game
+                    let _ = lobby
+                        .lock()
+                        .await
+                        .handle_command(LobbyCommand::JoinGame {
+                            game_id: client_msg.game_id.unwrap(),
+                            player_id,
                         })
                         .await;
-
-                    // Wait for the response
-                    if let Some(response) = response_rx.recv().await {
-                        let _ = ws_sender.send(warp::ws::Message::text(response)).await;
-                    }
                 }
-                "join_game" => {
-                    if let Some(game_id) = client_msg.game_id {
-                        // Send a command to the Lobby to join a game
-                        let _ = lobby_tx
-                            .send(LobbyCommand::JoinGame {
-                                game_id,
-                                player_id: 0, /* Replace with actual player ID */
-                            })
-                            .await;
-                    }
+                "create_game" => {
+                    println!("received create_game websocket action");
+                    let mut lobby = lobby.lock().await;
+                    let game_id = lobby.create_game();
+                    let _ = lobby.join_game(game_id, player.clone());
+                    let response = format!("{{\"sv\": \"create_game\", \"data\": {}}}", game_id);
+                    let _ = ws.send(warp::ws::Message::text(response)).await;
                 }
 
                 "play_card" => {

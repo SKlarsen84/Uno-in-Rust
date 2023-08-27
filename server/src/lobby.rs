@@ -33,6 +33,16 @@ impl Lobby {
         }
     }
 
+    fn broadcast_lobby_gamelist_changes(&self) {
+        // Collect all game IDs first
+        let game_ids: Vec<usize> = self.games.keys().cloned().collect();
+
+        //broadcast the list of games to all players
+        let games = self.list_games();
+        let games_json = serde_json::to_string(&games).unwrap();
+        //broadcast the list of games to all players
+    }
+
     pub fn remove_player_from_lobby(&mut self, player_id: usize) {
         self.players.retain(|p| p.id != player_id);
     }
@@ -115,10 +125,23 @@ impl Lobby {
                 }
             }
             LobbyCommand::FetchGames { response } => {
+                println!("received fetch_games websocket action from websocket handler");
                 let games = self.list_games();
                 let games_json = serde_json::to_string(&games).unwrap();
                 let _ = response.send(games_json).await; // Send the JSON string back
                 Ok(())
+            }
+            LobbyCommand::CreateGame { player_id } => {
+                // Find the player and create a game
+                let game_id = self.create_game();
+                if let Some(player) = self.players.iter().find(|p| p.id == player_id) {
+                    self.join_game(game_id, player.clone())?;
+                    Ok(())
+                } else {
+                    //remove the game if the player is not found
+                    self.games.remove(&game_id);
+                    Err("Player not found".to_string())
+                }
             }
         }
     }

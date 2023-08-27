@@ -6,7 +6,7 @@ const Lobby: React.FC = () => {
 
   useEffect(() => {
     // Initialize WebSocket connection
-    const ws = new WebSocket('ws://localhost:8000')
+    const ws = new WebSocket('ws://localhost:3030')
 
     ws.onopen = () => {
       // Fetch lobbies once connected
@@ -14,9 +14,11 @@ const Lobby: React.FC = () => {
     }
 
     ws.onmessage = message => {
-      const data = JSON.parse(message.data)
-      if (data.type === 'GAMES') {
-        setGames(data.games)
+      const response = JSON.parse(message.data)
+
+      if (response.sv === 'fetch_games') {
+        console.log('data', response.data)
+        setGames(response.data)
       }
     }
 
@@ -46,7 +48,7 @@ const Lobby: React.FC = () => {
       <button
         onClick={() => {
           // Send a message to the Rust server to create a new game
-          ws.send('create_game')
+          ws.send(JSON.stringify({ action: 'create_game' }))
         }}
       >
         Create Game
