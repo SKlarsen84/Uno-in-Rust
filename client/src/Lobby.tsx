@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import ws from './WebSocketClient'
-import { fetchGames } from './WebSocketClient'
+import ws, { fetchGames } from './WebsocketClient'
 
 const Lobby: React.FC = () => {
   const [games, setGames] = useState<any[]>([])
