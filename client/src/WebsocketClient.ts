@@ -8,4 +8,8 @@ ws.addEventListener("message", (event: MessageEvent) => {
   console.log("Message from server ", event.data);
 });
 
+export const fetchGames = (ws: WebSocket) => {
+  ws.send(JSON.stringify({ type: "FETCH_GAMES" }));
+};
+
 export default ws;

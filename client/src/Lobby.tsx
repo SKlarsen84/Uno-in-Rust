@@ -1,13 +1,29 @@
 import React, { useEffect, useState } from 'react'
 import ws from './WebSocketClient'
+import { fetchGames } from './WebSocketClient'
 
 const Lobby: React.FC = () => {
-  const [games, setGames] = useState<string[]>([])
+  const [games, setGames] = useState<any[]>([])
 
   useEffect(() => {
-    // Fetch existing games from the server
-    // For now, let's mock this
-    setGames(['Game 1', 'Game 2'])
+    // Initialize WebSocket connection
+    const ws = new WebSocket('ws://localhost:8000')
+
+    ws.onopen = () => {
+      // Fetch lobbies once connected
+      fetchGames(ws)
+    }
+
+    ws.onmessage = message => {
+      const data = JSON.parse(message.data)
+      if (data.type === 'GAMES') {
+        setGames(data.games)
+      }
+    }
+
+    return () => {
+      ws.close()
+    }
   }, [])
 
   return (

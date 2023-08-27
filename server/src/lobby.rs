@@ -113,7 +113,13 @@ impl Lobby {
                 } else {
                     Err("Player not found".to_string())
                 }
-            } // Add more commands as needed
+            }
+            LobbyCommand::FetchGames { response } => {
+                let games = self.list_games();
+                let games_json = serde_json::to_string(&games).unwrap();
+                let _ = response.send(games_json).await; // Send the JSON string back
+                Ok(())
+            }
         }
     }
 }
