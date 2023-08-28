@@ -12,7 +12,7 @@ pub struct Lobby {
     games: HashMap<usize, GameState>, // Mapping of game IDs to game states
     next_game_id: usize,              // Counter for generating unique game IDs
     players: Vec<Player>,             // List of players
-    websocket_sender: Option<Sender<String>>,
+    websocket_senders: Vec<Sender<String>>,
 }
 
 impl Lobby {
@@ -21,12 +21,12 @@ impl Lobby {
             games: HashMap::new(),
             next_game_id: 1,
             players: Vec::new(),
-            websocket_sender: None,
+            websocket_senders: Vec::new(),
         }
     }
 
     pub fn register_connection(&mut self, tx: Sender<String>) {
-        self.websocket_sender = Some(tx);
+        self.websocket_senders.push(tx);
     }
     pub fn add_player_to_lobby(&mut self, player: Player) {
         println!("Added player to lobby: {:?}", player.id);
@@ -42,10 +42,9 @@ impl Lobby {
         })
         .to_string();
 
-        if let Some(sender) = &self.websocket_sender {
+        for sender in &self.websocket_senders {
             sender.send(response.clone()).await.unwrap();
         }
-
         Ok(())
     }
 
