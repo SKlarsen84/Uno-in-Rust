@@ -15,8 +15,9 @@ const Lobby: React.FC = () => {
 
     ws.onmessage = message => {
       const response = JSON.parse(message.data)
+      console.log("got message: " + message.data)
 
-      if (response.sv === 'fetch_games') {
+      if (response.sv === 'update_lobby_games_list') {
         console.log('data', response.data)
         setGames(response.data)
       }
