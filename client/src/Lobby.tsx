@@ -5,34 +5,51 @@ const Lobby: React.FC = () => {
   const [games, setGames] = useState<any[]>([])
 
   useEffect(() => {
-    // Initialize WebSocket connection
-    const ws = new WebSocket('ws://localhost:3030')
+    const setupWebSocket = () => {
+      ws.onopen = () => {
+        fetchGames(ws)
+      }
 
-    ws.onopen = () => {
-      // Fetch lobbies once connected
-      fetchGames(ws)
-    }
+      ws.onmessage = message => {
+        try {
+          const response = JSON.parse(message.data)
+          console.log('Received message:', response)
 
-    ws.onmessage = message => {
-      const response = JSON.parse(message.data)
-      console.log("got message: " + message.data)
+          if (response.sv === 'update_lobby_games_list') {
+            console.log('Updating games list:', response)
+            const gameList = JSON.parse(response.data)
+            setGames(gameList)
+          }
+        } catch (e) {
+          console.error('Error handling message:', e)
+        }
+      }
 
-      if (response.sv === 'update_lobby_games_list') {
-        console.log('data', response.data)
-        setGames(response.data)
+      ws.onerror = error => {
+        console.error('WebSocket Error:', error)
+      }
+
+      ws.onclose = () => {
+        console.log('WebSocket closed. Attempting to reconnect...')
+        setupWebSocket()
       }
     }
 
-    return () => {
-      ws.close()
-    }
+    setupWebSocket()
   }, [])
+
+  const handleCreateGameClick = () => {
+    // Send a message to the Rust server to create a new game
+    console.log('Creating game...')
+    ws.send(JSON.stringify({ action: 'create_game' }))
+  }
 
   return (
     <div>
       <h1>Lobby</h1>
+      {JSON.stringify(games)}
       <ul>
-        {games.map((game, index) => (
+        {/* {games.map((game, index) => (
           <li key={index}>
             {game}
             <button
@@ -44,16 +61,9 @@ const Lobby: React.FC = () => {
               Join
             </button>
           </li>
-        ))}
+        ))} */}
       </ul>
-      <button
-        onClick={() => {
-          // Send a message to the Rust server to create a new game
-          ws.send(JSON.stringify({ action: 'create_game' }))
-        }}
-      >
-        Create Game
-      </button>
+      <button onClick={handleCreateGameClick}>Create Game</button>
     </div>
   )
 }

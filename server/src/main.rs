@@ -18,15 +18,28 @@ use warp::Filter;
 async fn main() {
     // Wrap the Lobby in an Arc<Mutex<...>>
     let lobby = Arc::new(Mutex::new(Lobby::new()));
+    let lobby_clone = lobby.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+            println!("Trying to acquire lock...");
 
-    //also serve a http server to simply show "hello world"
+            {
+                let mut lobby = lobby_clone.lock().await;
+                println!("Lock acquired.");
+                let e = lobby.update().await;
+                println!("Update result: {:?}", e)
+            } // Mutex is unlocked here
+
+            println!("Lock released.");
+        }
+
+    });
+
     println!("Server running on http://127.0.0.1:3030");
     let ws_route = warp::ws().and(warp::any().map(move || lobby.clone())).map(
         move |ws: warp::ws::Ws, lobby: Arc<Mutex<Lobby>>| {
-            let lobby_clone = lobby.clone(); // Clone it here
-            ws.on_upgrade(move |ws: WebSocket| {
-                websocket::handle_connection(ws, lobby_clone.clone())
-            })
+            ws.on_upgrade(move |ws: WebSocket| websocket::handle_connection(ws, lobby))
         },
     );
 

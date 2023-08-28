@@ -21,6 +21,7 @@ pub struct ClientMessage {
     pub game_id: Option<usize>,
     pub card: Option<Card>, // Assuming Card is serializable
 }
+
 pub enum LobbyCommand {
     JoinGame { game_id: usize, player_id: usize },
     FetchGames { response: TokioSender<String> },
@@ -35,79 +36,84 @@ fn generate_player_id() -> usize {
 }
 
 pub async fn handle_connection(mut ws: WebSocket, lobby: Arc<Mutex<Lobby>>) {
-    // Generate a player_id for this connection
-    let player_id = generate_player_id(); // Implement this function to generate a unique ID
+    let player_id = generate_player_id();
     let player = player::Player::new(player_id);
-    let (tx, mut rx) = tokio::sync::mpsc::channel(32);
-    lobby.lock().await.register_connection(tx);
-
-    //add the player to the lobby
-    lobby.lock().await.add_player_to_lobby(player.clone());
-
-    // Inform the client of their player_id
+    let (tx, mut rx) = mpsc::channel::<String>(32);
+    {
+        let mut lobby = lobby.lock().await;
+        lobby.register_connection(tx.clone());
+        lobby.add_player_to_lobby(player.clone());
+    }
+    // Send the player ID to the client
     let player_id_json = serde_json::to_string(&player_id).unwrap();
     ws.send(Message::text(player_id_json))
         .await
         .expect("Failed to send message");
 
-    while let Some(result) = ws.next().await {
-        let msg = match result {
-            Ok(msg) => msg,
-            Err(_) => {
-                // Handle the error
-                continue;
+    // Main event loop for this connection
+    loop {
+        tokio::select! {
+            // Receiving a message from the WebSocket
+            result = ws.next() => {
+                let msg = match result {
+                    Some(Ok(msg)) => msg,
+                    _ => continue,
+                };
+
+                if msg.is_text() {
+                    let text = msg.to_str().unwrap_or_default();
+                    let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
+                    if client_msg.is_err() {
+                        continue;
+                    }
+                    let client_msg = client_msg.unwrap();
+
+                    match client_msg.action.as_str() {
+                        "fetch_games" => {
+                            // Lock, fetch, and then immediately unlock
+                            let games = {
+                                let lobby = lobby.lock().await;
+                                lobby.list_games()
+                            };
+
+                            let games_json = serde_json::to_string(&games).unwrap();
+                            let response = format!(
+                                "{{\"sv\": \"update_lobby_games_list\", \"data\": {}}}",
+                                games_json
+                            );
+                            let _ = ws.send(warp::ws::Message::text(response)).await;
+                        }
+                        "join_game" => {
+                            // Implement join_game logic
+                        }
+                        "create_game" => {
+                            println!("Received create_game action.");
+                            let game_id = {
+                                let mut lobby = lobby.lock().await;
+                                lobby.create_game().await
+                            };
+                            println!("Created game with ID: {}", game_id);
+                            let response = format!(
+                                "{{\"sv\": \"game_created\", \"data\": {}}}",
+                                game_id
+                            );
+                            let _ = ws.send(warp::ws::Message::text(response)).await;
+
+                            // Send the updated game list to all clients
+                            let _ = lobby.lock().await.broadcast_lobby_gamelist().await;
+                        }
+                        "play_card" => {
+                            // Implement play_card logic
+                        }
+                        _ => {}
+                    }
+                }
+            },
+            // Receiving a message from the lobby (via the channel)
+            Some(message) = rx.recv() => {
+                // Forward the message to the WebSocket
+                let _ = ws.send(Message::text(message)).await;
             }
-        };
-        if msg.is_text() {
-            //convert the message to a string
-            let text = msg.to_str().unwrap_or_default();
-            let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
-            if client_msg.is_err() {
-                // Handle parsing error
-                // ...
-                continue; // Skip the rest of the loop iteration
-            }
-            let client_msg = client_msg.unwrap();
-
-            //no matter what our action merits of response, we need to send a response with a json eg {"sv": xxxx, "data": xxx
-
-            match client_msg.action.as_str() {
-                "fetch_games" => {
-                    println!("received fetch_games websocket action");
-                    let mut lobby = lobby.lock().await;
-                    let games = lobby.list_games();
-                    // Send the list of games back to the client
-                    let game_list = serde_json::to_string(&games).unwrap();
-                    let response = format!(
-                        "{{\"sv\": \"update_lobby_games_list\", \"data\": {}}}",
-                        game_list
-                    );
-
-                    // Lock the mutex to get mutable access to the SplitSink
-
-                    let _ = ws.send(warp::ws::Message::text(response)).await;
-                }
-
-                "join_game" => {
-                    println!("received join_game websocket action");
-                    // Send a command to the Lobby to join a game
-                }
-                "create_game" => {
-                    println!("received create_game websocket action");
-                    let mut lobby = lobby.lock().await;
-                    let game_id = lobby.create_game().await;
-                    let _ = lobby.join_game(game_id, player.clone());
-                }
-
-                "play_card" => {
-                    // Send a command to the GameState to play a card
-                    // ...
-                }
-                _ => {
-                    // Unknown action
-                    // ...
-                }
-            }
-        } // ... (rest of the code remains the same)
+        }
     }
 }
