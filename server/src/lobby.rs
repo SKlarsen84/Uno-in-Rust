@@ -68,8 +68,17 @@ impl Lobby {
         game_id
     }
 
-    // list all games in the lobby
-    pub fn list_games(&self) -> Vec<usize> {
-        self.games.keys().cloned().collect()
+    // list all games in the lobby with details about player count and round in progress
+    pub fn list_games(&self) -> Vec<serde_json::Value> {
+        let mut games = Vec::new();
+        for (game_id, game_state) in &self.games {
+            let game = json!({
+                "id": game_id,
+                "player_count": game_state.players.len(),
+                "round_in_progress": game_state.round_in_progress
+            });
+            games.push(game);
+        }
+        games
     }
 }
