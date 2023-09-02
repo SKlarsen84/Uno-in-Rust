@@ -40,7 +40,7 @@ impl Player {
         }
 
         self.current_game = Some(game_id);
-        println!("Player {} joined game {}", self.id, game_id);
+
         return Ok(());
     }
 

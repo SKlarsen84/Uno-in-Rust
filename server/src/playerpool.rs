@@ -27,6 +27,16 @@ impl PlayerPool {
         None
     }
 
+    pub fn update_player(&mut self, updated_player: Player) {
+        if let Some(conn) = self
+            .connections
+            .iter_mut()
+            .find(|conn| conn.player.id == updated_player.id)
+        {
+            conn.player = updated_player;
+        }
+    }
+
     pub fn register_connection(&mut self, sender: Sender<String>, player: Player) {
         self.connections.push(PlayerConnection { sender, player });
     }
