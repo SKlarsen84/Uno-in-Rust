@@ -29,12 +29,19 @@ impl Player {
 
     // Removed lobby from the method signature
     pub fn join_game(&mut self, game_id: usize) -> Result<(), String> {
-        //get all games in the lobby and check if the game_id is in the list
-        //if it is, set current_game to Some(game_id)
-        //if it is not, return an error
+        //we cannot join a game if we are already in a game
+        if self.current_game.is_some() {
+            return Err("Player is already in a game".to_string());
+        }
+
+        //we cannot join a game if we are already spectating
+        if self.is_spectator {
+            return Err("Player is already spectating".to_string());
+        }
 
         self.current_game = Some(game_id);
-        Ok(())
+        println!("Player {} joined game {}", self.id, game_id);
+        return Ok(());
     }
 
     // Removed lobby from the method signature

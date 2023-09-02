@@ -186,6 +186,11 @@ impl GameState {
             return Err("Game is full");
         }
 
+        //if the same player is already in the game, return an error
+        if self.players.iter().any(|p| p.id == player.id) {
+            return Err("Player already in game");
+        }
+
         if self.round_in_progress {
             player.is_spectator = true;
         }

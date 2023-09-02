@@ -6,6 +6,7 @@ use crate::player;
 use crate::playerpool::PlayerPool;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
+use serde_json::json;
 use warp::filters::ws::Message;
 use warp::ws::WebSocket;
 
@@ -34,7 +35,7 @@ pub async fn handle_connection(
     player_pool: Arc<Mutex<PlayerPool>>,
 ) {
     let player_id = generate_player_id();
-    let mut player = player::Player::new(player_id);
+    let player = player::Player::new(player_id);
     let (tx, mut rx) = mpsc::channel::<String>(32);
     // Register player in PlayerPool
     {
@@ -44,9 +45,12 @@ pub async fn handle_connection(
 
     // Send the player ID to the client
     let player_id_json = serde_json::to_string(&player_id).unwrap();
-    ws.send(Message::text(player_id_json))
-        .await
-        .expect("Failed to send message");
+    let response = json!({
+        "sv": "user_id",
+        "data": player_id_json
+    })
+    .to_string();
+    let _ = ws.send(Message::text(response)).await;
 
     // Main event loop for this connection
     loop {
@@ -59,7 +63,6 @@ pub async fn handle_connection(
                 };
 
                 if msg.is_text() {
-                    println!("Received message: {:?}", msg);
                     let text = msg.to_str().unwrap_or_default();
                     let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
                     if client_msg.is_err() {
@@ -71,47 +74,47 @@ pub async fn handle_connection(
 
                     match client_msg.action.as_str() {
                         "fetch_games" => {
-                            // Lock, fetch, and then immediately unlock
-
                                 let lobby = lobby.lock().await;
                                let _ = lobby.broadcast_lobby_gamelist().await;
-                                //release the lock
-
-
                         }
 
 
                         "join_game" => {
 
-                            println!("Player {} is joining game {}", player_id, client_msg.game_id.unwrap());
+
+
                             let game_id = client_msg.game_id.unwrap();
-
-                            
-                            let mut lobby = lobby.lock().await;
-                            let game = lobby.games.get_mut(&game_id).unwrap();
-
-                            println!("Game {} has {} players", game_id, game.players.len());
-
-                            //Then, get the player from the player_pool
+                            let result;
+                            {
                             let player_pool = player_pool.lock().await;
                             let mut player = player_pool.get_player_by_id(player_id).unwrap();
-                            println!("Found the player in the player pool: {:?}", player.id);
+                            result = player.join_game(game_id);
+                            }
 
-                            //Then, set the player's gameId to the game_id
-                            player.join_game(game_id).unwrap();
+                            // Use match to handle the Result
+                            match result {
+                                Ok(_) => {
 
-                            //Then, add the player to the game's list of players
-                            game.players.push(player.clone());
-                            println!("Added player {} to game {}", player.id, game_id);
-                            println!("Game {} now has {} players", game_id, game.players.len());
+                                    let mut lobby = lobby.lock().await;
+                                    let game = lobby.games.get_mut(&game_id).unwrap();
+                                    let _ = game.add_player(player.clone());
+                                    let _ = lobby.broadcast_lobby_gamelist().await;
+                                },
+                                Err(err_msg) => {
 
-
-                            lobby.publish_update().await;
-
-
-                            println!("players current set to: {}", player.current_game.unwrap_or(0));
-
+                                    // If Err, send a message to the client and continue to the next iteration
+                                    let response = json!({
+                                        "sv": "error",
+                                        "data": err_msg
+                                    })
+                                    .to_string();
+                                    let _ = ws.send(Message::text(response)).await;
+                                    continue;
+                                }
+                            }
                         }
+
+
                         "create_game" => {
                             let mut lobby = lobby.lock().await;
 

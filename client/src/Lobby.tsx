@@ -3,7 +3,7 @@ import ws, { fetchGames } from './WebsocketClient'
 
 const Lobby: React.FC = () => {
   const [games, setGames] = useState<any[]>([])
-
+  const [userId, setUserId] = useState<string>('')
   useEffect(() => {
     const setupWebSocket = () => {
       ws.onopen = () => {
@@ -21,6 +21,11 @@ const Lobby: React.FC = () => {
             const gameList = JSON.parse(response.data)
             setGames(gameList)
           }
+
+          if (response.sv === 'user_id') {
+            console.log('Received user id:', response)
+            setUserId(response.data)
+          }
         } catch (e) {
           console.error('Error handling message:', e)
         }
@@ -37,20 +42,7 @@ const Lobby: React.FC = () => {
     }
 
     setupWebSocket()
-
-    return () => {
-      // Close the WebSocket connection when the component unmounts
-      ws.close()
-    }
   }, [])
-
-  // //periodically refetch lobby
-  // useEffect(() => {
-  //   const interval = setInterval(() => {
-  //     fetchGames(ws)
-  //   }, 1000)
-  //   return () => clearInterval(interval)
-  // }, [])
 
   const handleCreateGameClick = () => {
     // Send a message to the Rust server to create a new game
@@ -67,6 +59,7 @@ const Lobby: React.FC = () => {
   return (
     <div>
       <h1>Lobby</h1>
+      <h2>{userId}</h2>
       <ul>
         {games.map((game, index) => (
           <li key={index}>
