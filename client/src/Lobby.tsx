@@ -17,7 +17,6 @@ const Lobby: React.FC = () => {
           console.log('Received message:', response)
 
           if (response.sv === 'update_lobby_games_list') {
-            console.log('Updating games list:', response)
             const gameList = JSON.parse(response.data)
             setGames(gameList)
           }
