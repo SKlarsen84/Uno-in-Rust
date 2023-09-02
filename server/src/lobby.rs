@@ -1,36 +1,34 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     game_state::{GameState, GameStatus},
-    player::Player,
+    player::{self, Player},
+    playerpool::PlayerPool,
 };
 use serde_json::json;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{mpsc::Sender, Mutex};
 use warp::filters::ws;
 
 pub struct Lobby {
-    games: HashMap<usize, GameState>, // Mapping of game IDs to game states
-    next_game_id: usize,              // Counter for generating unique game IDs
-    players: Vec<Player>,             // List of players
-    websocket_senders: Vec<Sender<String>>,
+    pub games: HashMap<usize, GameState>, // Mapping of game IDs to game states
+    next_game_id: usize,
+    player_pool: Arc<Mutex<PlayerPool>>,
 }
 
 impl Lobby {
-    pub fn new() -> Self {
+    pub fn new(player_pool: Arc<Mutex<PlayerPool>>) -> Self {
         Self {
             games: HashMap::new(),
             next_game_id: 1,
-            players: Vec::new(),
-            websocket_senders: Vec::new(),
+            player_pool,
         }
     }
 
-    pub fn register_connection(&mut self, tx: Sender<String>) {
-        self.websocket_senders.push(tx);
-    }
-    pub fn add_player_to_lobby(&mut self, player: Player) {
-        println!("Added player to lobby: {:?}", player.id);
-        self.players.push(player);
+    pub async fn get_all_players_in_lobby(&self) -> Vec<Player> {
+        let player_pool = self.player_pool.lock().await;
+        //check our player_pool for players that do not have a current_game
+        let players_in_lobby = player_pool.list_all_players();
+        players_in_lobby
     }
 
     pub async fn broadcast_lobby_gamelist(&self) -> Result<(), &'static str> {
@@ -42,29 +40,33 @@ impl Lobby {
         })
         .to_string();
 
-        for sender in &self.websocket_senders {
-            sender.send(response.clone()).await.unwrap();
+        println!("Broadcasting lobby game list: {}", response);
+
+        //get all players in the lobby
+
+        let players = self.get_all_players_in_lobby().await;
+        let player_pool = self.player_pool.lock().await;
+        //use the player_pool to send a message to each player in the lobby
+        for player in players {
+            player_pool.send_message(player, response.clone()).await;
         }
+
         Ok(())
     }
 
     //call broadcast_lobby_gamelist every 10 seconds
 
-    pub async fn update(&mut self) -> Result<(), &'static str> {
+    pub async fn publish_update(&mut self) {
         let _ = self.broadcast_lobby_gamelist().await;
-
-        return Ok(());
     }
-
-    // pub fn remove_player_from_lobby(&mut self, player_id: usize) {
-    //     self.players.retain(|p| p.id != player_id);
-    // }
 
     pub async fn create_game(&mut self) -> usize {
         let game_id = self.next_game_id;
         self.games.insert(game_id, GameState::new(game_id));
         self.next_game_id += 1;
+
         let _ = self.broadcast_lobby_gamelist().await;
+
         game_id
     }
 

@@ -23,13 +23,16 @@ impl Player {
             name: format!("Player {}", id),
             hand: Vec::new(),
             current_game: None,
-
             is_spectator: false,
         }
     }
 
     // Removed lobby from the method signature
     pub fn join_game(&mut self, game_id: usize) -> Result<(), String> {
+        //get all games in the lobby and check if the game_id is in the list
+        //if it is, set current_game to Some(game_id)
+        //if it is not, return an error
+
         self.current_game = Some(game_id);
         Ok(())
     }
