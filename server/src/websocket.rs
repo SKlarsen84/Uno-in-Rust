@@ -84,19 +84,19 @@ pub async fn handle_connection(
                                 let game_id = client_msg.game_id.unwrap();
                                 let result;
                                 {
-            let mut player_pool = player_pool.lock().await;
-            if let Some(mut player) = player_pool.get_player_by_id(player_id) {
-                result = player.join_game(game_id);
-                if result.is_ok() {
-                    player.current_game = Some(game_id);
-                    // Update the player in the pool
-                    player_pool.update_player(player);
-                }
-            } else {
-                // Handle player not found
-                continue;
-            }
-        }
+                                let mut player_pool = player_pool.lock().await;
+                                if let Some(mut player) = player_pool.get_player_by_id(player_id) {
+                                    result = player.join_game(game_id);
+                                    if result.is_ok() {
+                                        player.current_game = Some(game_id);
+                                        // Update the player in the pool
+                                        player_pool.update_player(player);
+                                    }
+                                } else {
+                                    // Handle player not found
+                                    continue;
+                                }
+                            }
 
                                 // Use match to handle the Result
                                 match result {
