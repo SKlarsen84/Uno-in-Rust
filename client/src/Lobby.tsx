@@ -21,7 +21,7 @@ const Lobby: React.FC = () => {
             setGames(gameList)
           }
 
-          if (response.sv === 'user_id') {
+          if (response.sv === 'player_id') {
             console.log('Received user id:', response)
             setUserId(response.data)
           }

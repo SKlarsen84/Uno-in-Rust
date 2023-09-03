@@ -32,7 +32,7 @@ fn generate_player_id() -> usize {
 pub async fn handle_connection(
     mut ws: WebSocket,
     lobby: Arc<Mutex<Lobby>>,
-    player_pool: Arc<Mutex<PlayerPool>>,
+    player_pool: Arc<Mutex<PlayerPool>>
 ) {
     let player_id = generate_player_id();
     let player = player::Player::new(player_id);
@@ -45,11 +45,7 @@ pub async fn handle_connection(
 
     // Send the player ID to the client
     let player_id_json = serde_json::to_string(&player_id).unwrap();
-    let response = json!({
-        "sv": "user_id",
-        "data": player_id_json
-    })
-    .to_string();
+    let response = create_websocket_message("player_id", &player_id_json);
     let _ = ws.send(Message::text(response)).await;
 
     // Main event loop for this connection
@@ -106,7 +102,8 @@ pub async fn handle_connection(
                                             let player_pool = player_pool.lock().await;
                                             let mut player = player_pool.get_player_by_id(player_id).unwrap();
                                             player.current_game = Some(game_id);
-                                            let _ = player_pool.send_message(player.clone(), "You joined the game".to_string()).await;
+                                            let response = create_websocket_message("you_joined_game", &game_id.to_string());
+                                            let _ = player_pool.send_message(player.clone(), response).await;
                                         }
 
 
@@ -118,11 +115,7 @@ pub async fn handle_connection(
                                     Err(err_msg) => {
 
                                         // If Err, send a message to the client and continue to the next iteration
-                                        let response = json!({
-                                            "sv": "error",
-                                            "data": err_msg
-                                        })
-                                        .to_string();
+                                        let response = create_websocket_message("error", &err_msg);
                                         let _ = ws.send(Message::text(response)).await;
                                         continue;
                                     }
@@ -154,4 +147,12 @@ pub async fn handle_connection(
                 }
             }
     }
+}
+
+//helper function to craft {sv: string, data: string} json messages
+pub fn create_websocket_message(sv: &str, data: &str) -> String {
+    json!({
+        "sv": sv,
+        "data": data
+    }).to_string()
 }
