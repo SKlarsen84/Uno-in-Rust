@@ -28,16 +28,17 @@ impl PlayerPool {
     }
 
     pub fn update_player(&mut self, updated_player: Player) {
-        if let Some(conn) = self
-            .connections
-            .iter_mut()
-            .find(|conn| conn.player.id == updated_player.id)
+        if
+            let Some(conn) = self.connections
+                .iter_mut()
+                .find(|conn| conn.player.id == updated_player.id)
         {
             conn.player = updated_player;
         }
     }
 
     pub fn register_connection(&mut self, sender: Sender<String>, player: Player) {
+        println!("Registering player {} in player pool", player.id);
         self.connections.push(PlayerConnection { sender, player });
     }
 
@@ -51,6 +52,16 @@ impl PlayerPool {
                 if let Err(e) = conn.sender.send(message.clone()).await {
                     println!("Failed to send message to player {}: {}", player.id, e);
                 }
+            }
+        }
+    }
+
+    //broadcast message - sends to all players in the pool
+    pub async fn broadcast_message(&self, message: String) {
+        println!("broadcasting message to {} players", self.connections.len());
+        for conn in &self.connections {
+            if let Err(e) = conn.sender.send(message.clone()).await {
+                println!("Failed to send message to player {}: {}", conn.player.id, e);
             }
         }
     }

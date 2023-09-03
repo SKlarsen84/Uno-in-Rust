@@ -67,7 +67,6 @@ impl Player {
 //tests
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
