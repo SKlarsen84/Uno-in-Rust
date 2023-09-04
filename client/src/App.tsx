@@ -1,11 +1,20 @@
 import React from 'react'
 import Lobby from './Lobby'
+//get the react-router dom imports
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import GameView from './Gameview'
+import { WebSocketProvider } from './WebSocketContext'
 
 const App: React.FC = () => {
   return (
-    <div className='App'>
-      <Lobby />
-    </div>
+    <WebSocketProvider>
+      <Router>
+        <Routes>
+          <Route path='/' element={<Lobby />} />
+          <Route path='/game/:gameId' element={<GameView />} />
+        </Routes>
+      </Router>
+    </WebSocketProvider>
   )
 }
 
