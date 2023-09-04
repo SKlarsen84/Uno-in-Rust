@@ -44,10 +44,25 @@ pub async fn handle_connection(
     }
 
     // Send the player ID to the client
-    let player_id_json = serde_json::to_string(&player_id).unwrap();
-    let response = create_websocket_message("player_id", &player_id_json);
+    //build the player as json and send it to the client
+    let player_json =
+        json!({
+        "id": player.id,
+        "name": player.name,
+        "hand:": player.hand,
+        "current_game": player.current_game,
+        "is_spectator": player.is_spectator
+    }).to_string();
+
+    //let player_json = serde_json::to_string(&player).unwrap();
+    let response = create_websocket_message("player", &player_json);
     let _ = ws.send(Message::text(response)).await;
 
+    // Send the list of games to the client
+    let games = lobby.lock().await.list_games();
+    let games_json = serde_json::to_string(&games).unwrap();
+    let response = create_websocket_message("update_lobby_games_list", &games_json);
+    let _ = ws.send(Message::text(response)).await;
     // Main event loop for this connection
     loop {
         tokio::select! {
@@ -55,7 +70,28 @@ pub async fn handle_connection(
                 result = ws.next() => {
                     let msg = match result {
                         Some(Ok(msg)) => msg,
-                        _ => continue,
+                        
+                         None => {
+                        // WebSocket connection was closed or an error occurred.
+                        println!("WebSocket connection closed for player_id: {}", player_id);
+
+                        // Deregister the player from the PlayerPool
+                        let mut player_pool = player_pool.lock().await;
+                        player_pool.remove_connection(player);
+
+                            //get a list of games from the lobby and - if the player is found in any games player_pool. remove them from that pool
+                            let mut lobby = lobby.lock().await;
+                            let games = lobby.games.values_mut();
+                            for game in games {
+                                //if the game has the player in its player_pool, remove them from the pool
+                                if game.game_player_pool.connections.iter().any(|conn| conn.player.id == player_id) {
+                                   let _ =  game.remove_player(player_id).await;
+                                }
+                            }
+ let _ = create_websocket_message("update_lobby_games_list", &games_json);   
+                        break; // Exit the loop
+                    },
+                    _ => continue,
                     };
 
                     if msg.is_text() {
@@ -70,6 +106,7 @@ pub async fn handle_connection(
 
                         match client_msg.action.as_str() {
                             "fetch_games" => {
+                                println!("fetch_games");
                                     let lobby = lobby.lock().await;
                                    let _ = lobby.broadcast_lobby_gamelist().await;
                             }
@@ -127,7 +164,7 @@ pub async fn handle_connection(
 
                             "create_game" => {
                                 let mut lobby = lobby.lock().await;
-
+                                println!("Creating game");
                                 let _ = {
 
                                     lobby.create_game().await

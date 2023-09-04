@@ -20,7 +20,7 @@ pub struct GameState {
     direction: i8, // 1 for clockwise, -1 for counter-clockwise
     pub round_in_progress: bool,
     pub is_waiting_for_players: bool,
-    game_player_pool: PlayerPool,
+    pub game_player_pool: PlayerPool,
 }
 pub enum GameStatus {
     Active,
@@ -67,9 +67,10 @@ impl GameState {
     //function to let the player receive an update about their hand content via the pool connection
     pub async fn update_player_hand(&self, player: Player) {
         // let player = self.game_player_pool.get_player_by_id(player_id).unwrap();
-        let player_data = player.to_serializable();
-        let player_data_json = serde_json::to_string(&player_data).unwrap();
-        let message = create_websocket_message("update_player_hand", &player_data_json);
+        let hand_data = player.hand.clone();
+        let hand_data_json = serde_json::to_string(&hand_data).unwrap();
+        let message = create_websocket_message("update_player_hand", &hand_data_json);
+        println!("game state {} sending hand update to player {}", self.id, player.id);
         self.game_player_pool.send_message(player, message).await;
     }
 
@@ -258,14 +259,14 @@ impl GameState {
         Ok(())
     }
 
-    pub fn remove_player(&mut self, player_id: usize) -> Result<(), &'static str> {
+    pub async fn remove_player(&mut self, player_id: usize) -> Result<(), &'static str> {
         if
             let Some(pos) = self.game_player_pool.connections
                 .iter()
                 .position(|conn| conn.player.id == player_id)
         {
             self.game_player_pool.connections.remove(pos);
-
+            let _ = self.update_players().await;
             Ok(())
         } else {
             Err("Player not found")

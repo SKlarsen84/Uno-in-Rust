@@ -7,14 +7,14 @@ import { WebSocketProvider } from './WebSocketContext'
 
 const App: React.FC = () => {
   return (
-    <WebSocketProvider>
-      <Router>
+    <Router>
+      <WebSocketProvider>
         <Routes>
           <Route path='/' element={<Lobby />} />
           <Route path='/game/:gameId' element={<GameView />} />
         </Routes>
-      </Router>
-    </WebSocketProvider>
+      </WebSocketProvider>
+    </Router>
   )
 }
 
