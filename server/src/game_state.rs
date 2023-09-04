@@ -1,6 +1,7 @@
 use std::{ collections::HashMap, sync::Arc };
 
 use rand::Rng;
+use serde_json::json;
 use tokio::sync::{ Mutex, mpsc::Sender };
 
 use crate::{
@@ -60,6 +61,33 @@ impl GameState {
         //convert players_data to json string
         let players_data_json = serde_json::to_string(&players_data).unwrap();
         let message = create_websocket_message("update_players", &players_data_json);
+        self.game_player_pool.broadcast_message(message).await;
+    }
+
+    //function to let the player receive an update about their hand content via the pool connection
+    pub async fn update_player_hand(&self, player: Player) {
+        // let player = self.game_player_pool.get_player_by_id(player_id).unwrap();
+        let player_data = player.to_serializable();
+        let player_data_json = serde_json::to_string(&player_data).unwrap();
+        let message = create_websocket_message("update_player_hand", &player_data_json);
+        self.game_player_pool.send_message(player, message).await;
+    }
+
+    //function to let players receive an update about the game state via the pool connection
+    pub async fn update_game_state(&self) {
+        //build a json object with the game status details
+        let info_object =
+            json!({
+            "round_in_progress": self.round_in_progress,
+            "current_turn": self.current_turn,
+            "direction": self.direction,
+            "discard_pile": self.discard_pile,
+            "deck_size": self.deck.cards.len(),
+            "player_count": self.game_player_pool.connections.len(),
+        });
+
+        let game_state_data_json = serde_json::to_string(&info_object).unwrap();
+        let message = create_websocket_message("update_game_state", &game_state_data_json);
         self.game_player_pool.broadcast_message(message).await;
     }
 
@@ -222,13 +250,11 @@ impl GameState {
         if !self.round_in_progress {
             println!("Player {} is not a spectator", player.id);
             player.set_hand(self.deck.draw_n(7)); // Draw 7 cards for the new player
+            self.update_player_hand(player).await;
         }
 
-        println!("Player {} joined game_state {}", player.id, self.id);
-        //inform every player in the game state that a new player has joined
-
         let _ = self.update_players().await;
-        println!("Player {} updated game_state {}", player.id, self.id);
+
         Ok(())
     }
 
