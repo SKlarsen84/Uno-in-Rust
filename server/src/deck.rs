@@ -1,16 +1,16 @@
 use rand::seq::SliceRandom;
 
-use crate::card::{Card, Color};
+use crate::card::{ Card, Color };
 use crate::card::Value;
 
 pub(crate) struct Deck {
-   pub cards: Vec<Card>,
+    pub cards: Vec<Card>,
 }
 
 impl Deck {
     pub fn new() -> Self {
         let mut cards = Vec::new();
-        for  color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue] {
+        for color in &[Color::Red, Color::Yellow, Color::Green, Color::Blue] {
             // Add numbers from 0 to 9, twice each (except for 0)
             for value in 0..10 {
                 let card = Card {

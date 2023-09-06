@@ -52,7 +52,7 @@ impl Lobby {
 
         // Use the player_pool to send a message to each player in the lobby
         for player in players {
-            player_pool.send_message(player, response.clone()).await;
+            player_pool.send_message(&player, response.clone()).await;
         }
 
         Ok(())

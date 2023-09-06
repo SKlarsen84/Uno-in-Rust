@@ -62,15 +62,26 @@ impl GameState {
         let players_data_json = serde_json::to_string(&players_data).unwrap();
         let message = create_websocket_message("update_players", &players_data_json);
         self.game_player_pool.broadcast_message(message).await;
+        self.update_game_state().await;
     }
 
     //function to let the player receive an update about their hand content via the pool connection
-    pub async fn update_player_hand(&self, player: Player) {
+    pub async fn update_player(&self, player: &Player) {
         // let player = self.game_player_pool.get_player_by_id(player_id).unwrap();
-        let hand_data = player.hand.clone();
-        let hand_data_json = serde_json::to_string(&hand_data).unwrap();
-        let message = create_websocket_message("update_player_hand", &hand_data_json);
-        println!("game state {} sending hand update to player {}", self.id, player.id);
+        let player_data = player.clone();
+        //construct a json string from the player data
+        let json =
+            json!({
+            "id": player_data.id,
+            "name": player_data.name,
+            "hand": player_data.hand,
+            "current_game": player_data.current_game,
+            "is_spectator": player_data.is_spectator
+        });
+
+        let player_data_json = serde_json::to_string(&json).unwrap();
+        let message = create_websocket_message("update_player", &player_data_json);
+        println!("game state {} sending player update to  player {}", self.id, player.id);
         self.game_player_pool.send_message(player, message).await;
     }
 
@@ -248,13 +259,9 @@ impl GameState {
             player.is_spectator = true;
         }
 
-        if !self.round_in_progress {
-            println!("Player {} is not a spectator", player.id);
-            player.set_hand(self.deck.draw_n(7)); // Draw 7 cards for the new player
-            self.update_player_hand(player).await;
-        }
-
         let _ = self.update_players().await;
+
+        self.check_and_start_round().await;
 
         Ok(())
     }
@@ -285,10 +292,11 @@ impl GameState {
         self.game_player_pool.get_player_by_id(player_id)
     }
 
-    pub fn check_and_start_round(&mut self) {
+    pub async fn check_and_start_round(&mut self) {
+        println!("Checking if we can start a round");
         if self.game_player_pool.connections.len() >= 2 && !self.round_in_progress {
             self.is_waiting_for_players = false;
-            self.start_round();
+            let _ = self.start_round().await;
         }
     }
 
@@ -296,29 +304,43 @@ impl GameState {
         self.game_player_pool.connections.len()
     }
 
-    pub fn start_round(&mut self) {
+    pub async fn start_round(&mut self) {
         //get a list of players
 
         let players = self.get_all_players_in_game();
+        println!("Player count from start_round: {}", players.len());
         if players.len() >= 2 {
+            println!("Starting round now");
             self.round_in_progress = true;
             self.direction = 1;
             self.deck = Deck::new();
             self.deck.shuffle();
-            self.discard_pile = vec![self.deck.draw().unwrap()];
+            self.discard_pile = vec![self.deck.draw().unwrap()]; // Draw the initial card
             self.current_turn = 0;
 
-            //for all players in our original player_pool, we need to find if the player is a spectator and update their hand if they are not
-            for conn in &mut self.game_player_pool.connections {
+            let deck = &mut self.deck;
+
+            println!("Dealing cards to players");
+            for conn in self.game_player_pool.connections.iter_mut() {
                 if !conn.player.is_spectator {
-                    conn.player.set_hand(self.deck.draw_n(7));
+                    let hand = deck.draw_n(7);
+                    conn.player.set_hand(hand);
+                }
+            }
+
+            println!("Sending player hands to players");
+            for conn in &self.game_player_pool.connections {
+                if !conn.player.is_spectator {
+                    let _ = self.update_player(&conn.player).await;
                 }
             }
 
             //choose a random non-spectator player to start the round
-            let mut rng = rand::thread_rng();
-            let random_player = rng.gen_range(0..players.len());
-            self.current_turn = players[random_player].id;
+
+            self.current_turn = 1;
+            println!("Player {} will start the round", self.current_turn);
+            //send the game state to all players
+            let _ = self.update_game_state().await;
         }
     }
 

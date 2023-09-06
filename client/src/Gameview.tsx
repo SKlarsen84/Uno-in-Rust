@@ -16,7 +16,14 @@ const GameView = () => {
     <div>
       <h1>Game View</h1>
       <div>
-        <h2>Status: {gameState}</h2>
+        <h2>Game State</h2>
+        <ul>
+          <li>Round in progress: {gameState?.round_in_progress ? 'Yes' : 'No'}</li>
+          <li>Current turn: {gameState?.current_turn.toString()}</li>
+          <li>Direction: {gameState?.direction.toString()}</li>
+          <li>Deck size: {gameState?.deck_size}</li>
+          <li>Player count: {gameState?.player_count}</li>
+        </ul>
       </div>
       <div>
         <h2>Players</h2>
@@ -28,6 +35,7 @@ const GameView = () => {
       </div>
       <div>
         <h2>Your Hand</h2>
+
         <ul>
           {player?.hand?.map((card, index) => (
             <li key={index}>{` ${card.color}: ${card.value}`}</li>

@@ -46,7 +46,7 @@ impl PlayerPool {
         self.connections.retain(|conn| conn.player.id != player.id);
     }
 
-    pub async fn send_message(&self, player: Player, message: String) {
+    pub async fn send_message(&self, player: &Player, message: String) {
         for conn in &self.connections {
             if conn.player.id == player.id {
                 if let Err(e) = conn.sender.send(message.clone()).await {

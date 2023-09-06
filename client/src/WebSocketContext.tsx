@@ -21,7 +21,14 @@ interface WebSocketContextProps {
   player: IPlayer | null
   players: IPlayer[]
   hand: ICard[]
-  gameState: 'waiting' | 'active'
+  gameState: {
+    round_in_progress: Boolean
+    current_turn: Number
+    direction: Number
+    discard_pile: ICard[]
+    deck_size: number
+    player_count: number
+  }
 }
 
 const WebSocketContext = createContext<WebSocketContextProps | null>(null)
@@ -40,7 +47,14 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
   const [player, setPlayer] = useState<IPlayer | null>(null)
   const [players, setPlayers] = useState<IPlayer[]>([])
   const [hand, setHand] = useState<ICard[]>([])
-  const [gameState, setGameState] = useState<'waiting' | 'active'>('waiting')
+  const [gameState, setGameState] = useState<{
+    round_in_progress: Boolean
+    current_turn: number
+    direction: number
+    discard_pile: ICard[]
+    deck_size: number
+    player_count: number
+  }>({ round_in_progress: false, current_turn: 0, direction: 1, discard_pile: [], deck_size: 102, player_count: 0 })
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -71,8 +85,8 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
           case 'update_players':
             setPlayers(data)
             break
-          case 'update_player_hand':
-            setHand(data)
+          case 'update_player':
+            setPlayer(data)
             break
           case 'update_game_state':
             setGameState(data)

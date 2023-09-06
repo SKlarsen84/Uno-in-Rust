@@ -85,10 +85,12 @@ pub async fn handle_connection(
                             for game in games {
                                 //if the game has the player in its player_pool, remove them from the pool
                                 if game.game_player_pool.connections.iter().any(|conn| conn.player.id == player_id) {
+                                    println!("Player {} found and removed from game {}", player_id, game.id);
                                    let _ =  game.remove_player(player_id).await;
                                 }
                             }
- let _ = create_websocket_message("update_lobby_games_list", &games_json);   
+                            println!("Player {} removed from player_pool", player_id);
+                            let _ = create_websocket_message("update_lobby_games_list", &games_json);   
                         break; // Exit the loop
                     },
                     _ => continue,
@@ -127,7 +129,7 @@ pub async fn handle_connection(
                                     }
                                 } else {
                                     // Handle player not found
-                                    continue;
+                                    continue; 
                                 }
                             }
 
@@ -140,7 +142,7 @@ pub async fn handle_connection(
                                             let mut player = player_pool.get_player_by_id(player_id).unwrap();
                                             player.current_game = Some(game_id);
                                             let response = create_websocket_message("you_joined_game", &game_id.to_string());
-                                            let _ = player_pool.send_message(player.clone(), response).await;
+                                            let _ = player_pool.send_message(&player, response).await;
                                         }
 
                                         // Add the player to the game   
