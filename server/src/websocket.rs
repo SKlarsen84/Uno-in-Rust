@@ -20,7 +20,7 @@ use tokio::sync::Mutex;
 pub struct ClientMessage {
     pub action: String,
     pub game_id: Option<usize>,
-    pub card: Option<Card>, // Assuming Card is serializable
+    pub card: Option<serde_json::Value>,
 }
 
 fn generate_player_id() -> usize {
@@ -97,12 +97,14 @@ pub async fn handle_connection(
                     };
 
                     if msg.is_text() {
-                        let text = msg.to_str().unwrap_or_default();
-                        let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
-                        if client_msg.is_err() {
-                            continue;
-                        }
-                        let client_msg = client_msg.unwrap();
+                    let text = msg.to_str().unwrap_or_default();
+                    println!("Received message from player {}: {}", player_id, text);
+                    let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
+                    if let Err(e) = client_msg {
+                        println!("Failed to parse client message: {}", e);
+                        continue;
+                    }
+                    let client_msg = client_msg.unwrap();
 
 
 
@@ -113,6 +115,16 @@ pub async fn handle_connection(
                                    let _ = lobby.broadcast_lobby_gamelist().await;
                             }
 
+                            "create_game" => {
+                                let mut lobby = lobby.lock().await;
+                                println!("Creating game");
+                                let _ = {
+
+                                    lobby.create_game().await
+                                };
+
+
+                            }
 
                             "join_game" => {
 
@@ -163,20 +175,46 @@ pub async fn handle_connection(
                                 }
                             }
 
-
-                            "create_game" => {
-                                let mut lobby = lobby.lock().await;
-                                println!("Creating game");
-                                let _ = {
-
-                                    lobby.create_game().await
-                                };
-
-
-                            }
                             "play_card" => {
-                                // Implement play_card logic
-                            }
+                                println!("got play_card message: {:?}", client_msg.card);
+                                //we will be getting a string from the client, so we need to convert it to a card              
+
+                             if let Some(card_json) = &client_msg.card {
+        match serde_json::from_value::<Card>(card_json.clone()) {
+            Ok(card) => {
+                println!("Card: {:?}", card);
+            
+                                    //get the game_id from the client message
+                                    let game_id = client_msg.game_id.unwrap();
+                                    let mut lobby = lobby.lock().await;
+                                    if let Some(game) = lobby.games.get_mut(&game_id) {
+                                        match game.play_card(player_id, card).await {
+                                            Ok(_) => {
+                                                // Notify the player that the card was successfully played
+                                                let message = create_websocket_message("card_played", "ok");
+                                                let _ = ws.send(Message::text(message)).await;
+                                                
+                                                // Update game state for all players
+                                                game.update_game_state().await;
+                                            },
+                                            Err(err) => {
+                                                // Notify the player of the error
+                                                let message = create_websocket_message("error", err);
+                                                let _ = ws.send(Message::text(message)).await;
+                                            }
+                                        }
+                                    }
+                                
+
+
+ },
+            Err(e) => {
+                println!("Failed to deserialize card: {}", e);
+            }
+        }
+    }
+
+                    }
                             _ => {}
                         }
                     }

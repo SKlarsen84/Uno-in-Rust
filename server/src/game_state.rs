@@ -16,15 +16,12 @@ pub struct GameState {
     pub id: usize,
     deck: Deck,
     discard_pile: Vec<Card>,
-    current_turn: usize,
+
+    player_to_play: usize,
     direction: i8, // 1 for clockwise, -1 for counter-clockwise
     pub round_in_progress: bool,
     pub is_waiting_for_players: bool,
     pub game_player_pool: PlayerPool,
-}
-pub enum GameStatus {
-    Active,
-    Empty,
 }
 
 impl GameState {
@@ -33,15 +30,13 @@ impl GameState {
         deck.shuffle();
 
         let discard_pile = vec![deck.draw().unwrap()]; // Draw the initial card
-        let current_turn = 0;
         let direction = 1;
 
         Self {
             id: id,
-
+            player_to_play: 0,
             deck,
             discard_pile,
-            current_turn,
             direction,
             round_in_progress: false,
             is_waiting_for_players: true,
@@ -60,29 +55,14 @@ impl GameState {
         println!("game state {} sending status update to: {} players", self.id, players_data.len());
         //convert players_data to json string
         let players_data_json = serde_json::to_string(&players_data).unwrap();
-        let message = create_websocket_message("update_players", &players_data_json);
-        self.game_player_pool.broadcast_message(message).await;
+        self.send_update("update_players", &players_data_json).await;
         self.update_game_state().await;
     }
 
-    //function to let the player receive an update about their hand content via the pool connection
     pub async fn update_player(&self, player: &Player) {
-        // let player = self.game_player_pool.get_player_by_id(player_id).unwrap();
-        let player_data = player.clone();
-        //construct a json string from the player data
-        let json =
-            json!({
-            "id": player_data.id,
-            "name": player_data.name,
-            "hand": player_data.hand,
-            "current_game": player_data.current_game,
-            "is_spectator": player_data.is_spectator
-        });
-
-        let player_data_json = serde_json::to_string(&json).unwrap();
+        let player_data_json = serialize_player_data(player);
         let message = create_websocket_message("update_player", &player_data_json);
-        println!("game state {} sending player update to  player {}", self.id, player.id);
-        self.game_player_pool.send_message(player, message).await;
+        self.game_player_pool.send_message(&player, message).await;
     }
 
     //function to let players receive an update about the game state via the pool connection
@@ -90,8 +70,9 @@ impl GameState {
         //build a json object with the game status details
         let info_object =
             json!({
+            "id": self.id,
             "round_in_progress": self.round_in_progress,
-            "current_turn": self.current_turn,
+            "player_to_play": self.player_to_play,
             "direction": self.direction,
             "discard_pile": self.discard_pile,
             "deck_size": self.deck.cards.len(),
@@ -103,16 +84,9 @@ impl GameState {
         self.game_player_pool.broadcast_message(message).await;
     }
 
-    pub fn play_card(&mut self, player_id: usize, card: Card) -> Result<(), &'static str> {
-        // Check if it's the player's turn
-        if self.current_turn != player_id {
-            return Err("Not your turn");
-        }
-
-        //check if the card is valid
-        if !self.is_valid_play(&card) {
-            return Err("Invalid play");
-        }
+    pub async fn play_card(&mut self, player_id: usize, card: Card) -> Result<(), &'static str> {
+        println!("Player {} attempting to play card {:?}", player_id, card);
+        self.validate_card_play(player_id, &card)?;
 
         // Step 1: Find the position of the card in the player's hand
         let pos_option = {
@@ -136,7 +110,7 @@ impl GameState {
             }
 
             // Move to the next turn
-            self.next_turn();
+            self.next_turn().await;
 
             Ok(())
         } else {
@@ -144,25 +118,24 @@ impl GameState {
         }
     }
 
-    pub fn next_turn(&mut self) {
-        self.current_turn =
-            (self.current_turn + (self.direction as usize)) %
-            self.game_player_pool.connections.len();
+    pub async fn next_turn(&mut self) {
+        //increment the current turn
+        let next_player = self.get_next_player();
+        let your_turn_json =
+            json!({
+                "player_id": next_player.id,
+                "message": "your turn!"
+            }).to_string();
+        let message = create_websocket_message("your_turn", &your_turn_json);
+        self.game_player_pool.send_message(&next_player, message).await;
     }
 
-    // Method to handle when all players leave
-    pub fn handle_all_players_left(&mut self) {
-        //check if player pool is empty
-        if self.game_player_pool.connections.is_empty() {
-            self.end_game();
-        }
-    }
-
-    pub fn apply_card_effect(&mut self, card: &Card) {
+    pub async fn apply_card_effect(&mut self, card: &Card) {
         match card.value {
-            Value::Skip => self.next_turn(),
+            Value::Skip => self.next_turn().await,
             Value::Reverse => {
                 self.direction *= -1;
+                self.next_turn().await;
             }
             Value::DrawTwo => self.draw_cards(self.next_player_id(), 2),
             Value::Wild => {} // Handle Wild card (e.g., allow player to choose color)
@@ -180,10 +153,6 @@ impl GameState {
         // Don't clear the players; just wait for more to join
     }
 
-    pub fn next_player_id(&self) -> usize {
-        (self.current_turn + (self.direction as usize)) % self.game_player_pool.connections.len()
-    }
-
     pub fn draw_cards(&mut self, player_id: usize, count: usize) {
         let mut player = self.game_player_pool.get_player_by_id(player_id).unwrap();
         player.hand.extend(self.deck.draw_n(count));
@@ -198,8 +167,15 @@ impl GameState {
         None
     }
 
+    pub fn next_player_id(&self) -> usize {
+        let mut next_player = self.player_to_play;
+        next_player =
+            (next_player + (self.direction as usize)) % self.game_player_pool.connections.len();
+        next_player
+    }
+
     pub fn draw_card(&mut self, player_id: usize) -> Result<(), &'static str> {
-        if self.current_turn != player_id {
+        if self.player_to_play != player_id {
             return Err("Not your turn");
         }
 
@@ -253,6 +229,12 @@ impl GameState {
         //add the player to the player pool
         self.game_player_pool.register_connection(tx, player_clone);
 
+        //if the player is the first player to join, set them as the host
+        if self.game_player_pool.connections.len() == 1 {
+            println!("Player {} is the host", player.id);
+            self.player_to_play = player.id;
+        }
+
         if self.round_in_progress {
             println!("Player {} is a spectator", player.id);
             //Set the player_pools copy of the player to spectator
@@ -280,18 +262,6 @@ impl GameState {
         }
     }
 
-    pub fn get_status(&self) -> GameStatus {
-        if self.game_player_pool.connections.is_empty() {
-            GameStatus::Empty
-        } else {
-            GameStatus::Active
-        }
-    }
-
-    pub fn get_player(&self, player_id: usize) -> Option<Player> {
-        self.game_player_pool.get_player_by_id(player_id)
-    }
-
     pub async fn check_and_start_round(&mut self) {
         println!("Checking if we can start a round");
         if self.game_player_pool.connections.len() >= 2 && !self.round_in_progress {
@@ -316,7 +286,7 @@ impl GameState {
             self.deck = Deck::new();
             self.deck.shuffle();
             self.discard_pile = vec![self.deck.draw().unwrap()]; // Draw the initial card
-            self.current_turn = 0;
+            self.player_to_play = players[0].id;
 
             let deck = &mut self.deck;
 
@@ -337,11 +307,54 @@ impl GameState {
 
             //choose a random non-spectator player to start the round
 
-            self.current_turn = 1;
-            println!("Player {} will start the round", self.current_turn);
+            println!("Player {} will start the round", self.player_to_play);
             //send the game state to all players
             let _ = self.update_game_state().await;
+
+            //get the first player from the pool. We need to find the "next" player that is not a spectator - and we need to take the current direction of the round into account.
+            let current_player = self.get_next_player();
+            let your_turn_json =
+                json!({
+                "player_id": current_player.id,
+                "message": "your turn!"
+            }).to_string();
+            let message = create_websocket_message("your_turn", &your_turn_json);
+            self.game_player_pool.send_message(&current_player, message).await;
         }
+    }
+
+    //logic goes as follow - we know who our current player is. We simply look at current game directioon and step left or right through player pool until we find a non-spectator player
+    pub fn get_next_player(&self) -> Player {
+        let mut found_player = false;
+        let mut player = self.game_player_pool.connections[0].player.clone();
+        //find the index of the self.player_to_play in the player pool
+        let mut player_index = self.game_player_pool.connections
+            .iter()
+            .position(|conn| conn.player.id == self.player_to_play)
+            .unwrap();
+
+        //loop until we find a non-spectator player to the left or right of the current player (depending on the direction of the round)
+        while !found_player {
+            //increment or decrement the player index depending on the direction of the round
+            player_index = ((player_index as i8) + self.direction) as usize;
+            //if we have reached the end of the player pool, loop back to the start
+            if player_index >= self.game_player_pool.connections.len() {
+                player_index = 0;
+            }
+            //if we have reached the start of the player pool, loop back to the end
+            if player_index < 0 {
+                player_index = self.game_player_pool.connections.len() - 1;
+            }
+            //get the player at the new index
+            player = self.game_player_pool.connections[player_index].player.clone();
+            //if the player is not a spectator, we have found our next player
+            if !player.is_spectator {
+                found_player = true;
+            }
+        }
+
+        //return the player if we found one, otherwise we need to return an error
+        player
     }
 
     //helper function to get all players that are not spectators
@@ -354,6 +367,7 @@ impl GameState {
     }
 
     pub fn end_round(&mut self) {
+        let players = self.get_all_players_in_game();
         for conn in &mut self.game_player_pool.connections {
             conn.player.hand.clear();
         }
@@ -361,7 +375,7 @@ impl GameState {
         self.deck.shuffle();
         self.round_in_progress = false;
         self.discard_pile = vec![self.deck.draw().unwrap()];
-        self.current_turn = 0;
+        self.player_to_play = players[0].id;
         // Reset game state for next round
     }
 
@@ -379,14 +393,34 @@ impl GameState {
         points
     }
 
-    pub fn end_game(&mut self) {
-        self.round_in_progress = false;
-        self.game_player_pool.connections.clear();
-        self.deck = Deck::new();
-        self.deck.shuffle();
-        self.discard_pile = vec![self.deck.draw().unwrap()];
-        self.current_turn = 0;
+    // Helper function to send updates to players
+    async fn send_update(&self, event: &str, data: &str) {
+        let message = create_websocket_message(event, data);
+        self.game_player_pool.broadcast_message(message).await;
+    }
+
+    // Simplified card validation in play_card
+    fn validate_card_play(&self, player_id: usize, card: &Card) -> Result<(), &'static str> {
+        if self.player_to_play != player_id {
+            return Err("Not your turn");
+        }
+        if !self.is_valid_play(&card) {
+            return Err("Invalid play");
+        }
+        Ok(())
     }
 }
 
 //tests
+// Helper function to serialize player data to JSON
+fn serialize_player_data(player: &Player) -> String {
+    let json =
+        json!({
+        "id": player.id,
+        "name": player.name,
+        "hand": player.hand,
+        "current_game": player.current_game,
+        "is_spectator": player.is_spectator
+    });
+    serde_json::to_string(&json).unwrap()
+}

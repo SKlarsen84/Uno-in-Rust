@@ -9,7 +9,7 @@ interface IPlayer {
   is_spectator?: boolean
 }
 
-interface ICard {
+export interface ICard {
   name: string
   color: string
   value: string
@@ -23,12 +23,14 @@ interface WebSocketContextProps {
   hand: ICard[]
   gameState: {
     round_in_progress: Boolean
-    current_turn: Number
-    direction: Number
+    player_to_play: number
+    direction: number
     discard_pile: ICard[]
     deck_size: number
     player_count: number
+    id: number
   }
+  isMyTurn: boolean
 }
 
 const WebSocketContext = createContext<WebSocketContextProps | null>(null)
@@ -49,12 +51,22 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
   const [hand, setHand] = useState<ICard[]>([])
   const [gameState, setGameState] = useState<{
     round_in_progress: Boolean
-    current_turn: number
+    player_to_play: number
+    id: number
     direction: number
     discard_pile: ICard[]
     deck_size: number
     player_count: number
-  }>({ round_in_progress: false, current_turn: 0, direction: 1, discard_pile: [], deck_size: 102, player_count: 0 })
+  }>({
+    id: 0,
+    round_in_progress: false,
+    player_to_play: 0,
+    direction: 1,
+    discard_pile: [],
+    deck_size: 102,
+    player_count: 0
+  })
+  const [isMyTurn, setIsMyTurn] = useState<boolean>(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -91,6 +103,9 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
           case 'update_game_state':
             setGameState(data)
             break
+          case 'your_turn':
+            setIsMyTurn(true)
+            break
           default:
             break
         }
@@ -107,7 +122,7 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
   }, [])
 
   return (
-    <WebSocketContext.Provider value={{ ws, games, player, players, hand, gameState }}>
+    <WebSocketContext.Provider value={{ ws, games, player, players, hand, gameState, isMyTurn }}>
       {children}
     </WebSocketContext.Provider>
   )

@@ -1,4 +1,6 @@
 use serde::{ Deserialize, Serializer, Serialize };
+use serde::de::{ self, Deserializer, Visitor };
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Color {
@@ -9,7 +11,7 @@ pub enum Color {
     Wild,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(u8),
     Skip,
@@ -17,6 +19,40 @@ pub enum Value {
     DrawTwo,
     Wild,
     WildDrawFour,
+}
+
+// Custom deserialization for Value
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        struct ValueVisitor;
+
+        impl<'de> Visitor<'de> for ValueVisitor {
+            type Value = Value;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a string representing a card value")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Value, E> where E: de::Error {
+                match value.to_lowercase().as_str() {
+                    "skip" => Ok(Value::Skip),
+                    "reverse" => Ok(Value::Reverse),
+                    "drawtwo" => Ok(Value::DrawTwo),
+                    "wild" => Ok(Value::Wild),
+                    "wilddrawfour" => Ok(Value::WildDrawFour),
+                    num_str => {
+                        if let Ok(num) = num_str.parse::<u8>() {
+                            Ok(Value::Number(num))
+                        } else {
+                            Err(E::custom(format!("Unexpected value: {}", value)))
+                        }
+                    }
+                }
+            }
+        }
+
+        deserializer.deserialize_str(ValueVisitor)
+    }
 }
 
 impl Value {
