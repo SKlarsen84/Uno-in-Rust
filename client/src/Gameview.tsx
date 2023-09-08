@@ -48,7 +48,7 @@ const GameView = () => {
         </ul>
       </div>
       <div>
-        <h2>Top Card in Draw Pile</h2>
+        <h2>Top Card in Pile</h2>
         {gameState?.discard_pile.length ? (
           <div>
             {` ${gameState.discard_pile[gameState.discard_pile.length - 1].color}: ${

@@ -37,9 +37,9 @@ impl<'de> Deserialize<'de> for Value {
                 match value.to_lowercase().as_str() {
                     "skip" => Ok(Value::Skip),
                     "reverse" => Ok(Value::Reverse),
-                    "drawtwo" => Ok(Value::DrawTwo),
+                    "draw_two" => Ok(Value::DrawTwo),
                     "wild" => Ok(Value::Wild),
-                    "wilddrawfour" => Ok(Value::WildDrawFour),
+                    "wild_draw_four" => Ok(Value::WildDrawFour),
                     num_str => {
                         if let Ok(num) = num_str.parse::<u8>() {
                             Ok(Value::Number(num))
