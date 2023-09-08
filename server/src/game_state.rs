@@ -96,7 +96,7 @@ impl GameState {
 
         // Check if the card is in the player's hand
         if let Some(pos) = pos_option {
-            self.apply_card_effect(&card);
+            self.apply_card_effect(&card).await;
             let mut player = self.game_player_pool.get_player_by_id(player_id).unwrap();
             player.hand.remove(pos);
 
@@ -313,6 +313,7 @@ impl GameState {
 
             //get the first player from the pool. We need to find the "next" player that is not a spectator - and we need to take the current direction of the round into account.
             let current_player = self.get_next_player();
+            self.player_to_play = current_player.id;
             let your_turn_json =
                 json!({
                 "player_id": current_player.id,
