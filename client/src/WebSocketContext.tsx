@@ -20,7 +20,6 @@ interface WebSocketContextProps {
   games: any[]
   player: IPlayer | null
   players: IPlayer[]
-  hand: ICard[]
   gameState: {
     round_in_progress: Boolean
     player_to_play: number
@@ -48,7 +47,6 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
   const [games, setGames] = useState<any[]>([])
   const [player, setPlayer] = useState<IPlayer | null>(null)
   const [players, setPlayers] = useState<IPlayer[]>([])
-  const [hand, setHand] = useState<ICard[]>([])
   const [gameState, setGameState] = useState<{
     round_in_progress: Boolean
     player_to_play: number
@@ -79,10 +77,15 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
     })
 
     newWs.onmessage = message => {
-      console.log('Received message:', message.data)
       try {
         const response = JSON.parse(message.data)
-        const data = JSON.parse(response.data)
+
+        let data = response.data
+        try {
+          data = JSON.parse(response.data)
+        } catch (e) {
+          // Ignore
+        }
         switch (response.sv) {
           case 'player':
             console.log('Received user id:', response)
@@ -109,6 +112,9 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
           case 'card_played':
             setIsMyTurn(false)
             break
+          case 'card_drawn':
+            setIsMyTurn(false)
+            break
           default:
             break
         }
@@ -125,7 +131,7 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
   }, [])
 
   return (
-    <WebSocketContext.Provider value={{ ws, games, player, players, hand, gameState, isMyTurn }}>
+    <WebSocketContext.Provider value={{ ws, games, player, players, gameState, isMyTurn }}>
       {children}
     </WebSocketContext.Provider>
   )

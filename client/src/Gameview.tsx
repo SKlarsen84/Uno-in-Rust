@@ -1,34 +1,64 @@
-import React, { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ICard, useWebSocket } from './WebSocketContext'
 import { useNavigate } from 'react-router-dom'
 
 const GameView = () => {
   const context = useWebSocket()
   const navigate = useNavigate()
+  const [selectedCards, setSelectedCards] = useState<ICard[]>([])
 
   if (!context) {
     return <div>Loading...</div>
   }
-
   const { players, ws, player, gameState, isMyTurn } = context
 
-  const canPlayCard = (card: ICard, discardPile: ICard[] | undefined) => {
-    const topCard = discardPile?.[discardPile.length - 1]
+  const canPlayCard = (card: ICard) => {
+    const topCard = gameState?.discard_pile?.[gameState?.discard_pile.length - 1]
+    const topSelectedCard = selectedCards?.[selectedCards?.length - 1]
     if (!topCard) return false
+
+    // If a card is already selected, only allow cards with the same value to be selected
+    if (topSelectedCard) {
+      return card.value === topSelectedCard.value
+    }
+
+    // Otherwise, allow cards that match the top card's color or value
+    console.log('top card: ' + JSON.stringify(topCard))
+    console.log('card: ' + JSON.stringify(card))
     return card.color === topCard.color || card.value === topCard.value
   }
 
-  const playCard = (card: ICard) => {
+  const playSelectedCards = () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('Sending play card message')
-      console.log(`Raw message: ${JSON.stringify({ action: 'play_card', card, game_id: gameState?.id })}`)
-      ws.send(JSON.stringify({ action: 'play_card', card, game_id: gameState?.id }))
+      console.log(
+        'sending play cards: ' + JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id })
+      )
+      ws.send(JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id }))
+    }
+    setSelectedCards([])
+  }
+
+  const drawCard = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'draw_card', game_id: gameState?.id }))
+    }
+    setSelectedCards([])
+  }
+
+  const toggleCardSelection = (card: ICard) => {
+    if (selectedCards.includes(card)) {
+      setSelectedCards(selectedCards.filter(c => c !== card))
+    } else {
+      if (canPlayCard(card)) {
+        setSelectedCards([...selectedCards, card])
+      }
     }
   }
 
   return (
     <div>
       <h1>Game View</h1>
+      <h3>{player?.id}</h3>
       <div>
         <h2>Game {gameState?.id}</h2>
         <ul>
@@ -65,12 +95,30 @@ const GameView = () => {
           {player?.hand?.map((card, index) => (
             <li key={index}>
               {` ${card.color}: ${card.value}`}
-              {isMyTurn && canPlayCard(card, gameState?.discard_pile) ? (
-                <button onClick={() => playCard(card)}>Play Card</button>
-              ) : null}
+              {isMyTurn && canPlayCard(card) && (
+                <button onClick={() => toggleCardSelection(card)}>
+                  {selectedCards.includes(card) ? 'Deselect' : 'Select'}
+                </button>
+              )}
             </li>
           ))}
         </ul>
+      </div>
+      {isMyTurn && (
+        <>
+          <div>
+            <button disabled={selectedCards.length === 0} onClick={playSelectedCards}>
+              Play Selected Cards
+            </button>
+          </div>
+          <div>
+            <h2>Draw a card</h2>
+            {isMyTurn ? <button onClick={drawCard}>Draw Card</button> : null}
+          </div>
+        </>
+      )}
+      <div>
+        <button onClick={() => navigate('/')}>Back to Lobby</button>
       </div>
     </div>
   )

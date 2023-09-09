@@ -20,7 +20,7 @@ use tokio::sync::Mutex;
 pub struct ClientMessage {
     pub action: String,
     pub game_id: Option<usize>,
-    pub card: Option<serde_json::Value>,
+    pub cards: Option<serde_json::Value>,
 }
 
 fn generate_player_id() -> usize {
@@ -175,45 +175,67 @@ pub async fn handle_connection(
                                 }
                             }
 
-                            "play_card" => {
-                                println!("got play_card message: {:?}", client_msg.card);
+                            "play_cards" => {
+                                println!("got play_cards message: {:?}", client_msg.cards);
                                 //we will be getting a string from the client, so we need to convert it to a card              
 
-                             if let Some(card_json) = &client_msg.card {
-        match serde_json::from_value::<Card>(card_json.clone()) {
-            Ok(card) => {
-                println!("Card: {:?}", card);
-            
-                                    //get the game_id from the client message
-                                    let game_id = client_msg.game_id.unwrap();
-                                    let mut lobby = lobby.lock().await;
-                                    if let Some(game) = lobby.games.get_mut(&game_id) {
-                                        match game.play_card(player_id, card).await {
-                                            Ok(_) => {
-                                                // Notify the player that the card was successfully played
-                                                let message = create_websocket_message("card_played", "ok");
-                                                let _ = ws.send(Message::text(message)).await;
-                                                
-                                                // Update game state for all players
-                                                game.update_game_state().await;
-                                            },
-                                            Err(err) => {
-                                                // Notify the player of the error
-                                                let message = create_websocket_message("error", err);
-                                                let _ = ws.send(Message::text(message)).await;
-                                            }
-                                        }
+                             if let Some(card_json) = &client_msg.cards {
+                                match serde_json::from_value::<Vec<Card>>(card_json.clone()) {
+                                    Ok(cards) => {
+                                        println!("Card: {:?}", cards);
+                                    
+                                                            //get the game_id from the client message
+                                                            let game_id = client_msg.game_id.unwrap();
+                                                            let mut lobby = lobby.lock().await;
+                                                            if let Some(game) = lobby.games.get_mut(&game_id) {
+                                                                match game.play_cards(player_id, cards).await {
+                                                                    Ok(_) => {
+                                                                        // Notify the player that the card was successfully played
+                                                                        let message = create_websocket_message("card_played", "ok");
+                                                                        let _ = ws.send(Message::text(message)).await;
+                                                                        
+                                                                        // Update game state for all players
+                                                                        game.update_game_state().await;
+                                                                    },
+                                                                    Err(err) => {
+                                                                        // Notify the player of the error
+                                                                        let message = create_websocket_message("error", err);
+                                                                        let _ = ws.send(Message::text(message)).await;
+                                                                    }
+                                                                }
+                                                            }
+                                                        
+                        },
+                                    Err(e) => {
+                                        println!("Failed to deserialize card: {}", e);
                                     }
-                                
+                                }
+                            }
 
-
- },
-            Err(e) => {
-                println!("Failed to deserialize card: {}", e);
-            }
-        }
-    }
-
+                    }
+                    "draw_card" => {
+                        //get the game_id from the client message
+                        let game_id = client_msg.game_id.unwrap();
+                        let mut lobby = lobby.lock().await;
+                        if let Some(game) = lobby.games.get_mut(&game_id) {
+                            match game.draw_card(player_id).await {
+                                Ok(_) => {
+                                    // Notify the player that the card was successfully played
+                                    let message = create_websocket_message("card_drawn", "ok");
+                                    let _ = ws.send(Message::text(message)).await;
+                                    
+                                    println!("player hand: {:?}", game.game_player_pool.get_player_by_id(player_id).unwrap().hand);
+                                    // Update game state for all players
+                                    game.update_player(&game.game_player_pool.get_player_by_id(player_id).unwrap()).await;
+                                     game.update_game_state().await;
+                                },
+                                Err(err) => {
+                                    // Notify the player of the error
+                                    let message = create_websocket_message("error", err);
+                                    let _ = ws.send(Message::text(message)).await;
+                                }
+                            }
+                        }
                     }
                             _ => {}
                         }
