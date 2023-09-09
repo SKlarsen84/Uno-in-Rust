@@ -106,6 +106,9 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
           case 'your_turn':
             setIsMyTurn(true)
             break
+          case 'card_played':
+            setIsMyTurn(false)
+            break
           default:
             break
         }

@@ -91,28 +91,55 @@ impl GameState {
         // Step 1: Find the position of the card in the player's hand
         let pos_option = {
             let player = &self.game_player_pool.get_player_by_id(player_id).unwrap();
-            player.hand.iter().position(|c| *c == card)
+            player.hand.iter().position(|c| c.color == card.color && card.value == card.value)
         };
 
-        // Check if the card is in the player's hand
         if let Some(pos) = pos_option {
-            self.apply_card_effect(&card).await;
-            let mut player = self.game_player_pool.get_player_by_id(player_id).unwrap();
-            player.hand.remove(pos);
+            let mut played_card: Option<Card> = None;
 
-            // Add the card to the discard pile
-            self.discard_pile.push(card);
-
-            // Check if the player has won
-            if let Some(_winner_id) = self.check_winner() {
-                self.end_round();
-                return Ok(());
+            // Use a block to limit the scope of the mutable borrow
+            {
+                if
+                    let Some(player_conn) = self.game_player_pool.connections
+                        .iter_mut()
+                        .find(|conn| conn.player.id == player_id)
+                {
+                    played_card = Some(player_conn.player.hand.remove(pos));
+                } else {
+                    return Err("Player not found");
+                }
             }
 
-            // Move to the next turn
-            self.next_turn().await;
+            // Now that the mutable borrow is out of scope, you can use self again
+            if let Some(card) = played_card {
+                self.apply_card_effect(&card).await;
+                let _ = self.update_player(
+                    &self.game_player_pool.get_player_by_id(player_id).unwrap()
+                ).await;
 
-            Ok(())
+                let played_card_json =
+                    json!({
+                "player_id": player_id,
+                "card": &card,
+            }).to_string();
+                let message = create_websocket_message("card_played", &played_card_json);
+                self.game_player_pool.send_message(
+                    &self.game_player_pool.get_player_by_id(player_id).unwrap(),
+                    message
+                ).await;
+
+                self.discard_pile.push(card);
+
+                if let Some(_winner_id) = self.check_winner() {
+                    self.end_round();
+                    return Ok(());
+                }
+
+                self.next_turn().await;
+                Ok(())
+            } else {
+                Err("Card not in hand")
+            }
         } else {
             Err("Card not in hand")
         }
@@ -127,6 +154,9 @@ impl GameState {
                 "message": "your turn!"
             }).to_string();
         let message = create_websocket_message("your_turn", &your_turn_json);
+        //update the game's player_to_play
+        self.player_to_play = next_player.id;
+
         self.game_player_pool.send_message(&next_player, message).await;
     }
 
