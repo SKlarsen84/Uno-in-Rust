@@ -118,8 +118,22 @@ impl GameState {
             }
         }
 
-        // Apply the effect of the first card
-        self.apply_card_effect(&first_card).await;
+        //if there's a draw two card in the played cards, we need to draw two cards for the next player
+        if played_cards.iter().any(|card| card.value == Value::DrawTwo) {
+            println!("Player {} played a draw two card", player_id);
+            let next_player_id = self.next_player_id();
+            println!("Drawing two cards for player {}", next_player_id);
+            let _ = self.draw_cards(next_player_id, 2).await;
+        }
+
+        //if there's a wild draw four card in the played cards, we need to draw four cards for the next player
+        if played_cards.iter().any(|card| card.value == Value::WildDrawFour) {
+            println!("Player {} played a draw 4 card", player_id);
+            let next_player_id = self.next_player_id();
+            println!("Drawing two cards for player {}", next_player_id);
+            let _ = self.draw_cards(next_player_id, 4).await;
+        }
+
         let _ = self.update_player(
             &self.game_player_pool.get_player_by_id(player_id).unwrap()
         ).await;
@@ -150,6 +164,8 @@ impl GameState {
     pub async fn next_turn(&mut self) {
         //increment the current turn
         let next_player = self.get_next_player();
+        //update the next_player's hand for them via the pool connection
+        let _ = self.update_player(&next_player).await;
         self.player_to_play = next_player.id;
         let your_turn_json =
             json!({
@@ -161,63 +177,44 @@ impl GameState {
         self.game_player_pool.send_message(&next_player, message).await;
     }
 
-    pub async fn apply_card_effect(&mut self, card: &Card) {
-        match card.value {
-            Value::Skip => self.next_turn().await,
-            Value::Reverse => {
-                self.direction *= -1;
-                self.next_turn().await;
-            }
-            Value::DrawTwo => self.draw_cards(self.next_player_id(), 2),
-            Value::Wild => {} // Handle Wild card (e.g., allow player to choose color)
-            Value::WildDrawFour => {
-                self.draw_cards(self.next_player_id(), 4);
-                // Handle Wild Draw Four (e.g., allow player to choose color)
-            }
-            _ => {}
-        }
-    }
-
     // Method to put the game into a "waiting" state
     pub fn go_into_waiting_state(&mut self) {
         self.round_in_progress = false;
         // Don't clear the players; just wait for more to join
     }
 
-    pub fn draw_cards(&mut self, player_id: usize, count: usize) {
-        let mut player = self.game_player_pool.get_player_by_id(player_id).unwrap();
-        player.hand.extend(self.deck.draw_n(count));
-    }
+    // DRAW CARD FUNCTIONS
 
-    pub fn check_winner(&self) -> Option<usize> {
-        for entry in &self.game_player_pool.connections {
-            if entry.player.hand.is_empty() {
-                return Some(entry.player.id);
+    //single card
+
+    pub async fn draw_cards(&mut self, player_id: usize, count: usize) -> Result<(), &'static str> {
+        println!("Player {} drawing {} cards", player_id, count);
+
+        let mut cards_to_draw = Vec::new();
+
+        // Draw 'count' number of cards and store them temporarily
+        for _ in 0..count {
+            if self.deck.is_empty() {
+                self.shuffle_discard_into_deck();
+            }
+            if let Some(card) = self.deck.draw() {
+                println!("Drew card: {:?} for player_id {}", card, player_id);
+                cards_to_draw.push(card);
             }
         }
-        None
-    }
 
-    fn get_player_by_id_mut(&mut self, player_id: usize) -> Option<&mut Player> {
-        //get a mutable reference to the player in the player pool
-        if
-            let Some(player_conn) = self.game_player_pool.connections
-                .iter_mut()
-                .find(|conn| conn.player.id == player_id)
-        {
-            Some(&mut player_conn.player)
+        // Now, add the drawn cards to the player's hand
+        if let Some(player) = self.get_player_by_id_mut(player_id) {
+            player.hand.extend(cards_to_draw);
         } else {
-            None
+            // Handle the case where the player is not found, if needed
+            println!("Player not found");
         }
+
+        Ok(())
     }
 
-    pub fn next_player_id(&self) -> usize {
-        let mut next_player = self.player_to_play;
-        next_player =
-            (next_player + (self.direction as usize)) % self.game_player_pool.connections.len();
-        next_player
-    }
-
+    //multiple cards
     pub async fn draw_card(&mut self, player_id: usize) -> Result<(), &'static str> {
         if self.player_to_play != player_id {
             return Err("Not your turn");
@@ -245,6 +242,55 @@ impl GameState {
         Ok(())
     }
 
+    // HELPER FUNCTIONS
+
+    pub fn check_winner(&self) -> Option<usize> {
+        for entry in &self.game_player_pool.connections {
+            if entry.player.hand.is_empty() {
+                return Some(entry.player.id);
+            }
+        }
+        None
+    }
+
+    fn get_player_by_id_mut(&mut self, player_id: usize) -> Option<&mut Player> {
+        //get a mutable reference to the player in the player pool
+        if
+            let Some(player_conn) = self.game_player_pool.connections
+                .iter_mut()
+                .find(|conn| conn.player.id == player_id)
+        {
+            Some(&mut player_conn.player)
+        } else {
+            None
+        }
+    }
+
+    pub fn next_player_id(&self) -> usize {
+        let mut current_player_id = self.player_to_play;
+
+        //find the index of our current player in the player pool
+        let mut player_index = self.game_player_pool.connections
+            .iter()
+            .position(|conn| conn.player.id == current_player_id)
+            .unwrap();
+
+        //increment or decrement the player index depending on the direction of the round
+        player_index = ((player_index as i8) + self.direction) as usize;
+        //if we have reached the end of the player pool, loop back to the start
+        if player_index >= self.game_player_pool.connections.len() {
+            player_index = 0;
+        }
+        //if we have reached the start of the player pool, loop back to the end
+        if player_index < 0 {
+            player_index = self.game_player_pool.connections.len() - 1;
+        }
+        //get the player at the new index
+        current_player_id = self.game_player_pool.connections[player_index].player.id;
+
+        current_player_id
+    }
+
     pub fn shuffle_discard_into_deck(&mut self) {
         let top_card = self.discard_pile.pop().unwrap();
         self.deck.cards.extend(self.discard_pile.drain(..));
@@ -267,7 +313,6 @@ impl GameState {
     ) -> Result<(), &'static str> {
         println!("Player {} attempting to join game_state {}", player.id, self.id);
         if self.game_player_pool.connections.len() >= 6 {
-            println!("Game is full");
             return Err("Game is full");
         }
 
@@ -276,7 +321,6 @@ impl GameState {
 
         //if the same player is already in the player_pool, return an error
         if self.game_player_pool.connections.iter().any(|conn| conn.player.id == player.id) {
-            println!("Player {} already in game_state {}", player.id, self.id);
             return Err("Player already in game");
         }
 
@@ -285,12 +329,10 @@ impl GameState {
 
         //if the player is the first player to join, set them as the host
         if self.game_player_pool.connections.len() == 1 {
-            println!("Player {} is the host", player.id);
             self.player_to_play = player.id;
         }
 
         if self.round_in_progress {
-            println!("Player {} is a spectator", player.id);
             //Set the player_pools copy of the player to spectator
             player.is_spectator = true;
         }
@@ -454,9 +496,11 @@ impl GameState {
     // Simplified card validation in play_card
     fn validate_card_play(&self, player_id: usize, card: &Card) -> Result<(), &'static str> {
         if self.player_to_play != player_id {
+            println!("Not your turn");
             return Err("Not your turn");
         }
         if !self.is_valid_play(&card) {
+            println!("Invalid play for card: {:?}", card);
             return Err("Invalid play");
         }
         Ok(())

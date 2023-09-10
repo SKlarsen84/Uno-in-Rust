@@ -6,6 +6,7 @@ const GameView = () => {
   const context = useWebSocket()
   const navigate = useNavigate()
   const [selectedCards, setSelectedCards] = useState<ICard[]>([])
+  const [showColorModal, setShowColorModal] = useState(false)
 
   if (!context) {
     return <div>Loading...</div>
@@ -23,19 +24,30 @@ const GameView = () => {
     }
 
     // Otherwise, allow cards that match the top card's color or value
-    console.log('top card: ' + JSON.stringify(topCard))
-    console.log('card: ' + JSON.stringify(card))
-    return card.color === topCard.color || card.value === topCard.value
+    return (
+      card.color === topCard.color || card.value === topCard.value || card.color === 'Wild' || topCard.color === 'Wild'
+    )
   }
 
   const playSelectedCards = () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log(
-        'sending play cards: ' + JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id })
-      )
+      const wildCardIndex = selectedCards.findIndex(card => card.color === 'Wild')
+      if (wildCardIndex !== -1) {
+        setShowColorModal(true)
+        return
+      }
       ws.send(JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id }))
     }
     setSelectedCards([])
+  }
+
+  const handleColorSelect = (color: string) => {
+    const wildCardIndex = selectedCards.findIndex(card => card.color === 'Wild')
+    if (wildCardIndex !== -1) {
+      selectedCards[wildCardIndex].color = color
+    }
+    setShowColorModal(false)
+    playSelectedCards() // Automatically play the card after color selection
   }
 
   const drawCard = () => {
@@ -106,6 +118,15 @@ const GameView = () => {
       </div>
       {isMyTurn && (
         <>
+          {showColorModal && (
+            <div className='color-modal'>
+              <h3>Select a color for the Wild card:</h3>
+              <button onClick={() => handleColorSelect('Red')}>Red</button>
+              <button onClick={() => handleColorSelect('Blue')}>Blue</button>
+              <button onClick={() => handleColorSelect('Green')}>Green</button>
+              <button onClick={() => handleColorSelect('Yellow')}>Yellow</button>
+            </div>
+          )}
           <div>
             <button disabled={selectedCards.length === 0} onClick={playSelectedCards}>
               Play Selected Cards
