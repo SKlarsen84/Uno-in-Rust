@@ -282,7 +282,7 @@ impl GameState {
             player_index = 0;
         }
         //if we have reached the start of the player pool, loop back to the end
-        if player_index < 0 {
+        if player_index <= 0 {
             player_index = self.game_player_pool.connections.len() - 1;
         }
         //get the player at the new index
