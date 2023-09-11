@@ -218,7 +218,7 @@ pub async fn handle_connection(
                         let game_id = client_msg.game_id.unwrap();
                         let mut lobby = lobby.lock().await;
                         if let Some(game) = lobby.games.get_mut(&game_id) {
-                            match game.draw_card(player_id).await {
+                            match game.draw_cards(player_id, 1, true).await {
                                 Ok(_) => {
                                     // Notify the player that the card was successfully played
                                     let message = create_websocket_message("card_drawn", "ok");
@@ -226,7 +226,7 @@ pub async fn handle_connection(
                                     
                                     println!("player hand: {:?}", game.game_player_pool.get_player_by_id(player_id).unwrap().hand);
                                     // Update game state for all players
-                                    game.update_player(&game.game_player_pool.get_player_by_id(player_id).unwrap()).await;
+                                    game.update_single_player(&game.game_player_pool.get_player_by_id(player_id).unwrap()).await;
                                      game.update_game_state().await;
                                 },
                                 Err(err) => {

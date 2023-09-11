@@ -3,7 +3,7 @@ use rand::seq::SliceRandom;
 use crate::card::{ Card, Color };
 use crate::card::Value;
 
-pub(crate) struct Deck {
+pub struct Deck {
     pub cards: Vec<Card>,
 }
 
