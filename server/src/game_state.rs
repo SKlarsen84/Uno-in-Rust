@@ -1,12 +1,7 @@
-use std::{ collections::HashMap, sync::Arc };
-
-use rand::Rng;
 use serde_json::json;
-use tokio::sync::{ Mutex, mpsc::Sender };
 
 use crate::{
     card::{ Card, Value },
-    player::{ Player, SerializablePlayer },
     playerpool::PlayerPool,
     websocket::create_websocket_message,
     deck::Deck,
@@ -108,22 +103,11 @@ impl GameState {
             self.discard_pile = vec![self.deck.draw().unwrap()]; // Draw the initial card
             self.player_to_play = players[0].id;
 
-            let deck = &mut self.deck;
+            // Dealing cards to players
+            self.deal_cards().await;
 
-            println!("Dealing cards to players");
-            for conn in self.game_player_pool.connections.iter_mut() {
-                if !conn.player.is_spectator {
-                    let hand = deck.draw_n(7);
-                    conn.player.set_hand(hand);
-                }
-            }
-
-            println!("Sending player hands to players");
-            for conn in &self.game_player_pool.connections {
-                if !conn.player.is_spectator {
-                    let _ = self.update_single_player(&conn.player).await;
-                }
-            }
+            // Sending player hands to players
+            self.send_player_hands().await;
 
             //choose a random non-spectator player to start the round
 
@@ -137,7 +121,34 @@ impl GameState {
                 "message": "your turn!"
             }).to_string();
             let message = create_websocket_message("your_turn", &your_turn_json);
-            self.game_player_pool.send_message(&players[0], message).await;
+            //get the player whose turn it is from the game pool
+            let player_id = self.player_to_play; // Store the player ID
+
+            // Mutable borrow ends, now you can borrow again
+            if let Some(player) = self.game_player_pool.get_player_by_id(player_id) {
+                self.game_player_pool.send_message(&player, message).await;
+            } else {
+                // Handle the case where the player is not found, if needed
+                println!("Player to start was not found");
+            }
+        }
+    }
+
+    pub async fn deal_cards(&mut self) {
+        let deck = &mut self.deck;
+        for conn in self.game_player_pool.connections.iter_mut() {
+            if !conn.player.is_spectator {
+                let hand = deck.draw_n(7);
+                conn.player.set_hand(hand);
+            }
+        }
+    }
+
+    pub async fn send_player_hands(&self) {
+        for conn in &self.game_player_pool.connections {
+            if !conn.player.is_spectator {
+                let _ = self.update_single_player(&conn.player).await;
+            }
         }
     }
 
@@ -152,19 +163,5 @@ impl GameState {
         self.discard_pile = vec![self.deck.draw().unwrap()];
         self.player_to_play = players[0].id;
         // Reset game state for next round
-    }
-
-    pub fn calculate_points(&self) -> HashMap<usize, i32> {
-        let mut points = HashMap::new();
-
-        for conn in &self.game_player_pool.connections {
-            let player_points: i32 = conn.player.hand
-                .iter()
-                .map(|card| card.value.to_points())
-                .sum();
-            points.insert(conn.player.id, player_points);
-        }
-
-        points
     }
 }

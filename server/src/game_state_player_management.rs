@@ -4,7 +4,7 @@ use crate::{
     websocket::create_websocket_message,
 };
 use serde_json::json;
-use tokio::sync::{ Mutex, mpsc::Sender };
+use tokio::sync::mpsc::Sender;
 
 // player_management.rs
 impl GameState {
@@ -66,27 +66,20 @@ impl GameState {
 
     /***** SOCKET UPDATERS */
     pub async fn update_list_of_players(&self) {
-        println!("game state starting update_players");
         let players_data = self.game_player_pool.connections
             .iter()
             .map(|p| p.player.to_serializable())
             .collect::<Vec<SerializablePlayer>>();
         //convert players_data to json string
         let players_data_json = serde_json::to_string(&players_data).unwrap();
-        self.broadcast_message_to_player_pool("update_players", &players_data_json).await;
-        self.update_game_state().await;
+        let message = create_websocket_message("update_players", &players_data_json);
+        self.game_player_pool.broadcast_message(message).await;
     }
 
     pub async fn update_single_player(&self, player: &Player) {
         let player_data_json = serialize_player_data(player);
         let message = create_websocket_message("update_player", &player_data_json);
         self.game_player_pool.send_message(&player, message).await;
-    }
-
-    // Helper function to send updates to players
-    async fn broadcast_message_to_player_pool(&self, event: &str, data: &str) {
-        let message = create_websocket_message(event, data);
-        self.game_player_pool.broadcast_message(message).await;
     }
 
     //function to let players receive an update about the game state via the pool connection
@@ -148,7 +141,7 @@ impl GameState {
                 player_index = 0;
             }
             //if we have reached the start of the player pool, loop back to the end
-            if player_index < 0 {
+            if player_index == 0 {
                 player_index = self.game_player_pool.connections.len() - 1;
             }
             //get the player at the new index
