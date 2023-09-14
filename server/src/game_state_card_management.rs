@@ -62,8 +62,21 @@ impl GameState {
                     .find(|conn| conn.player.id == player_id)
             {
                 for card in &cards {
-                    if let Some(pos) = player_conn.player.hand.iter().position(|c| c == card) {
-                        played_cards.push(player_conn.player.hand.remove(pos));
+                    if let Some(pos) = player_conn.player.hand.iter().position(|c| c.id == card.id) {
+                        //we neeed to remove the card from the player's hand (by id) and patch by the played color before adding it to played_cards
+
+                        //if the card is a wild, we need to set the color to the color of the card played
+                        if card.value == Value::Wild || card.value == Value::WildDrawFour {
+                            played_cards.push(Card {
+                                id: card.id,
+                                color: card.color.clone(),
+                                value: card.value.clone(),
+                            });
+                        } else {
+                            played_cards.push(card.clone());
+                        }
+                        //ultimately, we need to remove the card from the player's hand
+                        player_conn.player.hand.remove(pos);
                     } else {
                         return Err("Card not in hand");
                     }
@@ -73,26 +86,42 @@ impl GameState {
             }
         }
 
-        //if there's a draw two card in the played cards, we need to draw two cards for the next player
-        if played_cards.iter().any(|card| card.value == Value::DrawTwo) {
-            let next_player_id = self.get_next_player_id();
-            let _ = self.draw_cards(next_player_id, 2, false).await;
+        //for each draw two in the played cards, we need to draw two cards for the next player
+        for card in &played_cards {
+            if card.value == Value::DrawTwo {
+                let next_player_id = self.get_next_player_id();
+                println!("passing 2 cards to next player id: {} ", &next_player_id.to_string());
+                let _ = self.draw_cards(next_player_id, 2, false).await;
 
-            //we need to update the next player's hand for them via the pool connection
-            let _ = self.update_single_player(
-                &self.game_player_pool.get_player_by_id(next_player_id).unwrap()
-            ).await;
-        }
+                //we need to update the next player's hand for them via the pool connection
+                let _ = self.update_single_player(
+                    &self.game_player_pool.get_player_by_id(next_player_id).unwrap()
+                ).await;
+            }
 
-        //if there's a wild draw four card in the played cards, we need to draw four cards for the next player
-        if played_cards.iter().any(|card| card.value == Value::WildDrawFour) {
-            let next_player_id = self.get_next_player_id();
-            let _ = self.draw_cards(next_player_id, 4, false).await;
+            //if there's a wild draw four card in the played cards, we need to draw four cards for the next player
+            if card.value == Value::WildDrawFour {
+                let next_player_id = self.get_next_player_id();
+                println!("passing 4 cards to next player id: {} ", &next_player_id.to_string());
+                let _ = self.draw_cards(next_player_id, 4, false).await;
 
-            //we need to update the next player's hand for them via the pool connection
-            let _ = self.update_single_player(
-                &self.game_player_pool.get_player_by_id(next_player_id).unwrap()
-            ).await;
+                //we need to update the next player's hand for them via the pool connection
+                let _ = self.update_single_player(
+                    &self.game_player_pool.get_player_by_id(next_player_id).unwrap()
+                ).await;
+            }
+
+            //if there's a skip card in the played cards, we need to skip the next player. This will skip the turn once more in the next_turn function
+
+            if card.value == Value::Skip {
+                //Set the player to play to the next player
+                self.player_to_play = self.get_next_player_id();
+            }
+
+            //if there's a reverse card in the played cards, we need to reverse the direction of play
+            if card.value == Value::Reverse {
+                self.direction *= -1;
+            }
         }
 
         let _ = self.update_single_player(
@@ -110,7 +139,6 @@ impl GameState {
             message
         ).await;
 
-        //push the played cards to the discard pile with the last card played on top
         self.discard_pile.extend(played_cards);
 
         if let Some(_winner_id) = self.check_winner() {

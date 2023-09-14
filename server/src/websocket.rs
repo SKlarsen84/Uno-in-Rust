@@ -176,13 +176,13 @@ pub async fn handle_connection(
                             }
 
                             "play_cards" => {
-                                println!("got play_cards message: {:?}", client_msg.cards);
+                              
                                 //we will be getting a string from the client, so we need to convert it to a card              
 
                              if let Some(card_json) = &client_msg.cards {
                                 match serde_json::from_value::<Vec<Card>>(card_json.clone()) {
                                     Ok(cards) => {
-                                        println!("Card: {:?}", cards);
+                                    
                                     
                                                             //get the game_id from the client message
                                                             let game_id = client_msg.game_id.unwrap();

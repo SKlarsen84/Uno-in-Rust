@@ -70,6 +70,7 @@ impl Value {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Card {
+    pub id: usize,
     pub color: Color,
     pub value: Value,
 }

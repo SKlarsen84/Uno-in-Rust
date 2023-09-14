@@ -101,6 +101,19 @@ impl GameState {
             self.deck = Deck::new();
             self.deck.shuffle();
             self.discard_pile = vec![self.deck.draw().unwrap()]; // Draw the initial card
+
+            //if the top card in the discard pile is a wild, we need to draw more until we get a color. Starting on a wild is weird
+            while
+                self.discard_pile.last().unwrap().value == Value::Wild ||
+                self.discard_pile.last().unwrap().value == Value::WildDrawFour ||
+                self.discard_pile.last().unwrap().value == Value::Skip ||
+                self.discard_pile.last().unwrap().value == Value::Reverse ||
+                self.discard_pile.last().unwrap().value == Value::DrawTwo
+            {
+                self.shuffle_discard_into_deck();
+                self.discard_pile = vec![self.deck.draw().unwrap()];
+            }
+
             self.player_to_play = players[0].id;
 
             // Dealing cards to players
@@ -138,7 +151,7 @@ impl GameState {
         let deck = &mut self.deck;
         for conn in self.game_player_pool.connections.iter_mut() {
             if !conn.player.is_spectator {
-                let hand = deck.draw_n(7);
+                let hand = deck.draw_n(44);
                 conn.player.set_hand(hand);
             }
         }
