@@ -98,7 +98,6 @@ pub async fn handle_connection(
 
                     if msg.is_text() {
                     let text = msg.to_str().unwrap_or_default();
-                    println!("Received message from player {}: {}", player_id, text);
                     let client_msg: Result<ClientMessage, _> = serde_json::from_str(&text);
                     if let Err(e) = client_msg {
                         println!("Failed to parse client message: {}", e);
@@ -110,7 +109,7 @@ pub async fn handle_connection(
 
                         match client_msg.action.as_str() {
                             "fetch_games" => {
-                                println!("fetch_games");
+                              
                                     let lobby = lobby.lock().await;
                                    let _ = lobby.broadcast_lobby_gamelist().await;
                             }
