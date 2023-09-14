@@ -77,7 +77,6 @@ impl GameState {
     }
 
     pub async fn update_single_player(&self, player: &Player) {
-        println!("Updating player {}", player.id);
         let player_data_json = serialize_player_data(player);
         let message = create_websocket_message("update_player", &player_data_json);
         self.game_player_pool.send_message(&player, message).await;
