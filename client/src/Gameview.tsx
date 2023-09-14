@@ -36,6 +36,8 @@ const GameView = () => {
         setShowColorModal(true)
         return
       }
+      console.log(`Playing cards to websocket:`)
+      console.log(selectedCards)
       ws.send(JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id }))
     }
     setSelectedCards([])
@@ -47,6 +49,7 @@ const GameView = () => {
       selectedCards[wildCardIndex].color = color
     }
     setShowColorModal(false)
+    console.log(`Selected color: ${color}`)
     playSelectedCards() // Automatically play the card after color selection
   }
 

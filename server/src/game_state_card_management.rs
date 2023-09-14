@@ -92,11 +92,6 @@ impl GameState {
                 let next_player_id = self.get_next_player_id();
                 println!("passing 2 cards to next player id: {} ", &next_player_id.to_string());
                 let _ = self.draw_cards(next_player_id, 2, false).await;
-
-                //we need to update the next player's hand for them via the pool connection
-                let _ = self.update_single_player(
-                    &self.game_player_pool.get_player_by_id(next_player_id).unwrap()
-                ).await;
             }
 
             //if there's a wild draw four card in the played cards, we need to draw four cards for the next player
@@ -104,11 +99,6 @@ impl GameState {
                 let next_player_id = self.get_next_player_id();
                 println!("passing 4 cards to next player id: {} ", &next_player_id.to_string());
                 let _ = self.draw_cards(next_player_id, 4, false).await;
-
-                //we need to update the next player's hand for them via the pool connection
-                let _ = self.update_single_player(
-                    &self.game_player_pool.get_player_by_id(next_player_id).unwrap()
-                ).await;
             }
 
             //if there's a skip card in the played cards, we need to skip the next player. This will skip the turn once more in the next_turn function
