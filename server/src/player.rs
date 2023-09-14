@@ -1,7 +1,7 @@
 use crate::card::Card;
 use serde::Serialize;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Player {
     pub id: usize,
     pub name: String,

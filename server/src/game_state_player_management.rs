@@ -13,9 +13,13 @@ impl GameState {
         tx: Sender<String>,
         mut player: Player
     ) -> Result<(), &'static str> {
-        println!("Player {} attempting to join game_state {}", player.id, self.id);
         if self.game_player_pool.connections.len() >= 6 {
             return Err("Game is full");
+        }
+
+        if self.round_in_progress {
+            //Set the player_pools copy of the player to spectator
+            player.is_spectator = true;
         }
 
         //clone the player so we have a copy to store in the player pool
@@ -32,11 +36,6 @@ impl GameState {
         //if the player is the first player to join, set them as the host
         if self.game_player_pool.connections.len() == 1 {
             self.player_to_play = player.id;
-        }
-
-        if self.round_in_progress {
-            //Set the player_pools copy of the player to spectator
-            player.is_spectator = true;
         }
 
         let _ = self.update_list_of_players().await;
@@ -124,33 +123,31 @@ impl GameState {
     }
 
     pub fn get_next_player(&self) -> Player {
-        let mut found_player = false;
-        let mut player = self.game_player_pool.connections[0].player.clone();
-        //find the index of the self.player_to_play in the player pool
-        let mut player_index = self.game_player_pool.connections
+        println!("Getting next player");
+
+        //we want to loop through the player pool and get a list of players who are not spectators
+
+        let players = self.game_player_pool.connections
             .iter()
-            .position(|conn| conn.player.id == self.player_to_play)
+            .filter(|conn| !conn.player.is_spectator)
+            .map(|conn| &conn.player) // Map to the player field
+            .collect::<Vec<&crate::player::Player>>();
+
+        //get the index of the current player
+        let mut player_index = players
+            .iter()
+            .position(|p| p.id == self.player_to_play)
             .unwrap();
 
-        //loop until we find a non-spectator player to the left or right of the current player (depending on the direction of the round)
-        while !found_player {
-            //increment or decrement the player index depending on the direction of the round
-            player_index = ((player_index as i8) + self.direction) as usize;
-            //if we have reached the end of the player pool, loop back to the start
-            if player_index >= self.game_player_pool.connections.len() {
-                player_index = 0;
-            }
-            //if we have reached the start of the player pool, loop back to the end
-            if player_index < 0 {
-                player_index = self.game_player_pool.connections.len() - 1;
-            }
-            //get the player at the new index
-            player = self.game_player_pool.connections[player_index].player.clone();
-            //if the player is not a spectator, we have found our next player
-            if !player.is_spectator {
-                found_player = true;
-            }
-        }
+        // Step to the next player in the player list - the game's direction determines whether we increment or decrement the index
+        player_index = if self.direction == 1 {
+            (player_index + 1) % players.len()
+        } else {
+            (player_index + players.len() - 1) % players.len()
+        };
+
+        //get the player at the new index
+        let player = players[player_index].clone();
 
         //return the player if we found one, otherwise we need to return an error
         player

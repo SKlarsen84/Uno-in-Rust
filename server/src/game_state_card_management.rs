@@ -44,7 +44,7 @@ impl GameState {
         player_id: usize,
         cards: Vec<Card>
     ) -> Result<(), &'static str> {
-        // Validation: All cards must have the same value and be valid plays
+        println!("Before play_cards");
         let first_card = cards.first().ok_or("No cards provided")?;
         self.validate_card_play(player_id, &first_card)?;
 
@@ -53,6 +53,7 @@ impl GameState {
             return Err("Invalid cards");
         }
 
+        println!("After validation:"); // Validation: All cards must have the same value and be valid plays
         // Find and remove the cards from the player's hand
         let mut played_cards: Vec<Card> = Vec::new();
         {
@@ -86,6 +87,14 @@ impl GameState {
             }
         }
 
+        println!("removed cards from hand");
+
+        //if the player has no cards left, they win the round
+        if self.game_player_pool.get_player_by_id(player_id).unwrap().hand.is_empty() {
+            self.end_round();
+            return Ok(());
+        }
+
         //for each draw two in the played cards, we need to draw two cards for the next player
         for card in &played_cards {
             if card.value == Value::DrawTwo {
@@ -114,9 +123,13 @@ impl GameState {
             }
         }
 
+        println!("after draw two and wild draw four checks");
+
         let _ = self.update_single_player(
             &self.game_player_pool.get_player_by_id(player_id).unwrap()
         ).await;
+
+        println!("after update single player");
 
         let played_cards_json =
             json!({
@@ -129,13 +142,26 @@ impl GameState {
             message
         ).await;
 
+        println!("after send message");
         self.discard_pile.extend(played_cards);
 
+        println!("after extend discard pile");
+
         if let Some(_winner_id) = self.check_winner() {
+            println!("Winner found");
+
+            //create and broadcast a message to all players the id of the winning player
+            let winner_json =
+                json!({
+                    "winner_id": player_id,
+                }).to_string();
+            let message = create_websocket_message("winner_found", &winner_json);
+            self.game_player_pool.broadcast_message(message).await;
             self.end_round();
             return Ok(());
         }
 
+        println!("Time for nexT_turn");
         self.next_turn().await;
         Ok(())
     }
@@ -151,5 +177,24 @@ impl GameState {
             return Err("Invalid play");
         }
         Ok(())
+    }
+
+    pub fn shuffle_discard_into_deck(&mut self) {
+        let top_card = self.discard_pile.pop().unwrap();
+        self.deck.cards.extend(self.discard_pile.drain(..));
+        self.deck.shuffle();
+        //we need to make sure that every Wild card that has been played (with a color chosen) is reset back to Color: Wild.
+        //This is because the color chosen is stored in the card itself, and we don't want to carry that over to the next round
+        //find all cards with a value of Wild or WildDrawFour and set their color to Wild
+        self.reset_played_wild_cards();
+        self.discard_pile.push(top_card);
+    }
+
+    pub fn reset_played_wild_cards(&mut self) {
+        for card in &mut self.deck.cards {
+            if card.value == Value::Wild || card.value == Value::WildDrawFour {
+                card.color = crate::card::Color::Wild;
+            }
+        }
     }
 }

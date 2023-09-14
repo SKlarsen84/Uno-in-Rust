@@ -7,6 +7,7 @@ use crate::{
     deck::Deck,
 };
 
+#[derive(Debug)]
 pub struct GameState {
     pub id: usize,
     pub deck: Deck,
@@ -59,18 +60,11 @@ impl GameState {
 
     pub fn check_winner(&self) -> Option<usize> {
         for entry in &self.game_player_pool.connections {
-            if entry.player.hand.is_empty() {
+            if entry.player.hand.is_empty() && !entry.player.is_spectator {
                 return Some(entry.player.id);
             }
         }
         None
-    }
-
-    pub fn shuffle_discard_into_deck(&mut self) {
-        let top_card = self.discard_pile.pop().unwrap();
-        self.deck.cards.extend(self.discard_pile.drain(..));
-        self.deck.shuffle();
-        self.discard_pile.push(top_card);
     }
 
     pub fn is_valid_play(&self, card: &Card) -> bool {
@@ -82,7 +76,6 @@ impl GameState {
     }
 
     pub async fn check_and_start_round(&mut self) {
-        println!("Checking if we can start a round");
         if self.game_player_pool.connections.len() >= 2 && !self.round_in_progress {
             self.is_waiting_for_players = false;
             let _ = self.start_round().await;
@@ -93,13 +86,12 @@ impl GameState {
         //get a list of players
 
         let players = self.get_all_players_in_game();
-        println!("Player count from start_round: {}", players.len());
         if players.len() >= 2 {
-            println!("Starting round now");
             self.round_in_progress = true;
             self.direction = 1;
             self.deck = Deck::new();
             self.deck.shuffle();
+            self.reset_played_wild_cards();
             self.discard_pile = vec![self.deck.draw().unwrap()]; // Draw the initial card
 
             //if the top card in the discard pile is a wild, we need to draw more until we get a color. Starting on a wild is weird
@@ -122,9 +114,6 @@ impl GameState {
             // Sending player hands to players
             self.send_player_hands().await;
 
-            //choose a random non-spectator player to start the round
-
-            println!("Player {} will start the round", self.player_to_play);
             //send the game state to all players
             let _ = self.update_game_state().await;
 
@@ -151,7 +140,7 @@ impl GameState {
         let deck = &mut self.deck;
         for conn in self.game_player_pool.connections.iter_mut() {
             if !conn.player.is_spectator {
-                let hand = deck.draw_n(44);
+                let hand = deck.draw_n(7);
                 conn.player.set_hand(hand);
             }
         }

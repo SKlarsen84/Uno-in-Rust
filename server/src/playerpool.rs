@@ -2,11 +2,12 @@ use tokio::sync::mpsc::Sender;
 
 use crate::player::Player;
 
+#[derive(Debug)]
 pub struct PlayerConnection {
     sender: Sender<String>,
     pub player: Player,
 }
-
+#[derive(Debug)]
 pub struct PlayerPool {
     pub connections: Vec<PlayerConnection>,
 }
@@ -38,7 +39,6 @@ impl PlayerPool {
     }
 
     pub fn register_connection(&mut self, sender: Sender<String>, player: Player) {
-        println!("Registering player {} in player pool", player.id);
         self.connections.push(PlayerConnection { sender, player });
     }
 
@@ -58,7 +58,6 @@ impl PlayerPool {
 
     //broadcast message - sends to all players in the pool
     pub async fn broadcast_message(&self, message: String) {
-        println!("broadcasting message to {} players", self.connections.len());
         for conn in &self.connections {
             if let Err(e) = conn.sender.send(message.clone()).await {
                 println!("Failed to send message to player {}: {}", conn.player.id, e);

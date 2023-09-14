@@ -157,10 +157,8 @@ pub async fn handle_connection(
                                         }
 
                                         // Add the player to the game   
-                                        println!("Adding player to game_state");
                                         let mut lobby = lobby.lock().await;
                                         let game = lobby.games.get_mut(&game_id).unwrap();
-                                        println!("identified game as {:?}", game.id);
                                         let _ = game.add_player(tx.clone(), player.clone()).await;
                                         let _ = lobby.broadcast_lobby_gamelist().await;
                                     },
