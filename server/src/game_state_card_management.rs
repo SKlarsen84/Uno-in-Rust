@@ -44,7 +44,6 @@ impl GameState {
         player_id: usize,
         cards: Vec<Card>
     ) -> Result<(), &'static str> {
-        println!("Before play_cards");
         let first_card = cards.first().ok_or("No cards provided")?;
         self.validate_card_play(player_id, &first_card)?;
 
@@ -53,7 +52,6 @@ impl GameState {
             return Err("Invalid cards");
         }
 
-        println!("After validation:"); // Validation: All cards must have the same value and be valid plays
         // Find and remove the cards from the player's hand
         let mut played_cards: Vec<Card> = Vec::new();
         {
@@ -86,8 +84,6 @@ impl GameState {
                 return Err("Player not found");
             }
         }
-
-        println!("removed cards from hand");
 
         //if the player has no cards left, they win the round
         if self.game_player_pool.get_player_by_id(player_id).unwrap().hand.is_empty() {
@@ -123,13 +119,9 @@ impl GameState {
             }
         }
 
-        println!("after draw two and wild draw four checks");
-
         let _ = self.update_single_player(
             &self.game_player_pool.get_player_by_id(player_id).unwrap()
         ).await;
-
-        println!("after update single player");
 
         let played_cards_json =
             json!({
@@ -142,10 +134,7 @@ impl GameState {
             message
         ).await;
 
-        println!("after send message");
         self.discard_pile.extend(played_cards);
-
-        println!("after extend discard pile");
 
         if let Some(_winner_id) = self.check_winner() {
             println!("Winner found");
@@ -161,7 +150,6 @@ impl GameState {
             return Ok(());
         }
 
-        println!("Time for nexT_turn");
         self.next_turn().await;
         Ok(())
     }
