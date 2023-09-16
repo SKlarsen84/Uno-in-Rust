@@ -1,6 +1,33 @@
 import { useEffect, useState } from 'react'
 import { ICard, useWebSocket } from './WebSocketContext'
 import { useNavigate } from 'react-router-dom'
+import Card from './components/Card/Card'
+import styled from 'styled-components'
+// import Card from './components/Card/Card'
+
+interface CardRowProps {
+  cardsCnt?: number
+  highlight?: boolean
+}
+
+const CardRow = styled.div<CardRowProps>`
+  display: flex;
+  justify-content: center;
+
+  filter: ${props => (props.highlight ? 'drop-shadow(0 0 10px white)' : 'brightness(0.6)')};
+
+  --cardsCnt: ${props => props.cardsCnt};
+  --containerMaxWidth: 55vw;
+  .card-container {
+    &:not(:last-of-type) {
+      margin-right: calc(
+        -1 * max(calc((var(--cardWidth) * var(--cardsCnt) - var(--containerMaxWidth)) / (var(--cardsCnt)-1)), calc(var(
+                  --cardWidth
+                ) / 3))
+      );
+    }
+  }
+`
 
 const GameView = () => {
   const context = useWebSocket()
@@ -61,6 +88,7 @@ const GameView = () => {
   }
 
   const toggleCardSelection = (card: ICard) => {
+    if (!isMyTurn) return
     if (selectedCards.includes(card)) {
       setSelectedCards(selectedCards.filter(c => c !== card))
     } else {
@@ -74,31 +102,25 @@ const GameView = () => {
     <div>
       <h1>Game View</h1>
       <h3>{player?.id}</h3>
-      <div>
-        <h2>Game {gameState?.id}</h2>
-        <ul>
-          <li>Round in progress: {gameState?.round_in_progress ? 'Yes' : 'No'}</li>
-          <li>Direction: {gameState?.direction.toString()}</li>
-          <li>Deck size: {gameState?.deck_size}</li>
-          <li>Player count: {gameState?.player_count}</li>
-          <li>Player turn: {gameState?.player_to_play}</li>
-        </ul>
-      </div>
-      <div>
-        <h2>Players</h2>
-        <ul>
-          {players?.map((player, index) => (
-            <li key={index}>{player.id}</li>
-          ))}
-        </ul>
-      </div>
+
       <div>
         <h2>Top Card in Pile</h2>
         {gameState?.discard_pile.length ? (
           <div>
-            {` ${gameState.discard_pile[gameState.discard_pile.length - 1].color}: ${
-              gameState.discard_pile[gameState.discard_pile.length - 1].value
-            }`}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: '190px' }}>
+                <Card
+                  color={gameState.discard_pile[gameState.discard_pile.length - 1].color}
+                  value={gameState.discard_pile[gameState.discard_pile.length - 1].value}
+                  selectable={false}
+                  playable={false}
+                  onCardClick={() => {}}
+                  cardIsSelected={false}
+                  flip={false}
+                  rotationY={0}
+                />
+              </div>
+            </div>
           </div>
         ) : (
           <div>No cards in discard pile</div>
@@ -106,18 +128,26 @@ const GameView = () => {
       </div>
       <div>
         <h2>Your Hand</h2>
-        <ul>
-          {player?.hand?.map((card, index) => (
-            <li key={index}>
-              {` ${card.color}: ${card.value}`}
-              {isMyTurn && canPlayCard(card) && (
-                <button onClick={() => toggleCardSelection(card)}>
-                  {selectedCards.includes(card) ? 'Deselect' : 'Select'}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <CardRow>
+            {player?.hand?.map((card, index) => (
+              <div key={index} className='card-container'>
+                <div style={{ width: '190px' }}>
+                  <Card
+                    color={card.color}
+                    value={card.value}
+                    selectable={isMyTurn && canPlayCard(card)}
+                    playable={isMyTurn && canPlayCard(card)}
+                    onCardClick={() => toggleCardSelection(card)}
+                    cardIsSelected={selectedCards.includes(card)}
+                    flip={false}
+                    rotationY={0}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardRow>
+        </div>
       </div>
       {isMyTurn && (
         <>

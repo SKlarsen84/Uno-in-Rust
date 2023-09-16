@@ -10,6 +10,7 @@ interface IPlayer {
 }
 
 export interface ICard {
+  id: number
   name: string
   color: string
   value: string
