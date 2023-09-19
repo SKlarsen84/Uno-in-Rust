@@ -48,8 +48,6 @@ const Root = styled.div<RootProps>`
       font-size: 64px;
       font-family: sans-serif !important;
       font-weight: bold;
- 
-     
     }
 
     .card-icon {
@@ -144,6 +142,7 @@ interface CardProps {
   playable?: boolean
   disableShadow?: boolean
   cardIsSelected?: boolean
+  cardBeingPlayed?: boolean
   onCardClick?: () => void
 }
 
@@ -158,6 +157,7 @@ export default function Card({
   playable,
   disableShadow,
   cardIsSelected,
+  cardBeingPlayed,
   onCardClick = () => {}
 }: CardProps) {
   const onClick = () => {
@@ -208,32 +208,44 @@ export default function Card({
   }
 
   return (
-    <Root
-      as={motion.div}
-      color={color}
-      className='noselect'
-      layoutId={layoutId}
-      initial={{
-        rotateY: flip ? Math.abs(180 - rotationY) : rotationY,
-        y: 0
+    <motion.div
+      initial={{ x: 0, y: 0 }}
+      animate={{
+        x: cardBeingPlayed ? '55' : 0,
+        y: cardBeingPlayed ? '55' : 0
       }}
-      width={200}
-      whileHover={selectable ? { y: -40, transition: { duration: 0.3 } } : { y: 0, transition: { duration: 0.3 } }}
-      animate={{ rotateY: rotationY, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeInOut' }}
-      selectable={selectable}
-      playable={selectable}
-      disableShadow={false}
-      onClick={onCardClick}
-      //if the card is selected, add a border and keep it a little raised
-      style={{
-        border: cardIsSelected ? '2px solid white' : 'none'
-      }}
+      transition={{ duration: 0.5 }}
     >
-      <div className='front'>{getFrontContent()}</div>
-      <div className='back'>
-        <Image src={`../assets/images/backside.png`} ratio={590 / 418} />
-      </div>
-    </Root>
+      <Root
+        as={motion.div}
+        color={color}
+        className='noselect'
+        layoutId={layoutId}
+        initial={{
+          rotateY: flip ? Math.abs(180 - rotationY) : rotationY,
+          y: 0
+        }}
+        width={200}
+        whileHover={selectable ? { y: -40, transition: { duration: 0.3 } } : { y: 0, transition: { duration: 0.3 } }}
+        animate={{
+          rotateY: rotationY,
+          y: cardIsSelected ? -40 : 0 // Raise the card if it's selected
+        }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        selectable={selectable}
+        playable={selectable}
+        disableShadow={false}
+        onClick={onCardClick}
+        //if the card is selected, add a border and keep it a little raised
+        style={{
+          border: cardIsSelected ? '2px solid white' : 'none'
+        }}
+      >
+        <div className='front'>{getFrontContent()}</div>
+        <div className='back'>
+          <Image src={`../assets/images/backside.png`} ratio={590 / 418} />
+        </div>
+      </Root>
+    </motion.div>
   )
 }

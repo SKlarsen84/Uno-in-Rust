@@ -34,6 +34,8 @@ const GameView = () => {
   const navigate = useNavigate()
   const [selectedCards, setSelectedCards] = useState<ICard[]>([])
   const [showColorModal, setShowColorModal] = useState(false)
+  // In your GameView component
+  const [cardBeingPlayed, setCardBeingPlayed] = useState<ICard | null>(null)
 
   if (!context) {
     return <div>Loading...</div>
@@ -66,6 +68,7 @@ const GameView = () => {
       console.log(`Playing cards to websocket:`)
       console.log(selectedCards)
       ws.send(JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id }))
+      setCardBeingPlayed(selectedCards[0])
     }
     setSelectedCards([])
   }
@@ -142,6 +145,7 @@ const GameView = () => {
                     cardIsSelected={selectedCards.includes(card)}
                     flip={false}
                     rotationY={0}
+                    cardBeingPlayed={cardBeingPlayed?.id === card.id}
                   />
                 </div>
               </div>
