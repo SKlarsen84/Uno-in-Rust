@@ -11,7 +11,7 @@ const Root = styled.div`
   width: 100%;
   overflow-x: hidden;
   /* background: radial-gradient(#5065da, #20295a); */
-  background: radial-gradient(#3d50ba, #161d3f);
+  background: linear-gradient(#e1e1e1, #747889);
 `
 
 const App: React.FC = () => {
@@ -30,4 +30,5 @@ const App: React.FC = () => {
 }
 
 export default App
+
 

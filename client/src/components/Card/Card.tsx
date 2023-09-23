@@ -1,6 +1,8 @@
 import styled from 'styled-components'
 import Image from '../Image/Image'
-import { motion } from 'framer-motion'
+import { motion, useAnimation } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { Button } from '@nextui-org/button'
 
 type RootProps = {
   selectable?: boolean
@@ -160,15 +162,47 @@ export default function Card({
   cardBeingPlayed,
   onCardClick = () => {}
 }: CardProps) {
-  const onClick = () => {
-    if (playable) console.log('playable card clicked')
-  }
+  const controls = useAnimation()
+
+  const [checkAnimation, setCheckAnimation] = useState(false)
+
+  useEffect(() => {
+    console.log('useEffect triggered')
+    console.log('Current ID:', id)
+    console.log('Cards being played:', cardBeingPlayed)
+
+    if (cardBeingPlayed) {
+      const cardElement = document.getElementById('card_id_' + id)
+      const discardPileElement = document.getElementById('discard-pile')
+
+      if (cardElement && discardPileElement) {
+        console.log(`Animating card with ID: ${id}`)
+        console.log('Card Element:', cardElement)
+        console.log('Discard Pile Element:', discardPileElement)
+
+        const cardRect = cardElement.getBoundingClientRect()
+        const discardPileRect = discardPileElement.getBoundingClientRect()
+
+        const moveToX = discardPileRect.x - cardRect.x
+        const moveToY = discardPileRect.y - cardRect.y
+        controls.start({
+          x: moveToX,
+          y: moveToY,
+          transition: { duration: 0.5 }
+        })
+      }
+    }
+  }, [cardBeingPlayed, controls, id])
 
   const getFrontContent = () => {
     if (color.toLowerCase() === 'wild' && value.toLowerCase() === 'wild')
-      return <Image src={`assets/images/wild.png`} ratio={590 / 418} />
+      return (
+        <>
+          <Image src={`../assets/images/wild.png`} ratio={590 / 418} />
+        </>
+      )
 
-    if (color === 'wild')
+    if (color === 'wild' && value === 'wild_draw_four')
       return (
         <>
           <Image src={`../assets/images/front-${color}.png`} ratio={590 / 418} />
@@ -208,14 +242,7 @@ export default function Card({
   }
 
   return (
-    <motion.div
-      initial={{ x: 0, y: 0 }}
-      animate={{
-        x: cardBeingPlayed ? '55' : 0,
-        y: cardBeingPlayed ? '55' : 0
-      }}
-      transition={{ duration: 0.5 }}
-    >
+    <motion.div initial={{ x: 0, y: 0 }} animate={controls}>
       <Root
         as={motion.div}
         color={color}
@@ -241,11 +268,14 @@ export default function Card({
           border: cardIsSelected ? '2px solid white' : 'none'
         }}
       >
-        <div className='front'>{getFrontContent()}</div>
+        <div className='front' id={`card_id_${id}`}>
+          {getFrontContent()}
+        </div>
         <div className='back'>
           <Image src={`../assets/images/backside.png`} ratio={590 / 418} />
         </div>
       </Root>
+      <Button onClick={() => setCheckAnimation(!checkAnimation)}>Click me</Button>
     </motion.div>
   )
 }

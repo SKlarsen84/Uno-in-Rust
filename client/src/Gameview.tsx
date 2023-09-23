@@ -30,17 +30,19 @@ const CardRow = styled.div<CardRowProps>`
 `
 
 const GameView = () => {
-  const context = useWebSocket()
   const navigate = useNavigate()
   const [selectedCards, setSelectedCards] = useState<ICard[]>([])
   const [showColorModal, setShowColorModal] = useState(false)
   // In your GameView component
-  const [cardBeingPlayed, setCardBeingPlayed] = useState<ICard | null>(null)
+  const [cardsBeingPlayed, setCardsBeingPlayed] = useState<ICard[]>([])
+  const [shouldAnimateAndSend, setShouldAnimateAndSend] = useState(false)
 
-  if (!context) {
-    return <div>Loading...</div>
-  }
-  const { players, ws, player, gameState, isMyTurn } = context
+  const context = useWebSocket()
+  const players = context?.players
+  const ws = context?.ws
+  const player = context?.player
+  const gameState = context?.gameState
+  const isMyTurn = context?.isMyTurn
 
   const canPlayCard = (card: ICard) => {
     const topCard = gameState?.discard_pile?.[gameState?.discard_pile.length - 1]
@@ -65,12 +67,16 @@ const GameView = () => {
         setShowColorModal(true)
         return
       }
-      console.log(`Playing cards to websocket:`)
-      console.log(selectedCards)
-      ws.send(JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id }))
-      setCardBeingPlayed(selectedCards[0])
+      //set every card in the card to be played stacks as cards being playde
+      setCardsBeingPlayed(selectedCards)
+
+      //WAIT FOR ANIMATION TO FINISH
+      setTimeout(() => {
+        ws.send(JSON.stringify({ action: 'play_cards', cards: selectedCards, game_id: gameState?.id }))
+        setSelectedCards([])
+        setCardsBeingPlayed([])
+      }, 1000)
     }
-    setSelectedCards([])
   }
 
   const handleColorSelect = (color: string) => {
@@ -111,7 +117,7 @@ const GameView = () => {
         {gameState?.discard_pile.length ? (
           <div>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: '190px' }}>
+              <div style={{ width: '190px' }} id='discard-pile'>
                 <Card
                   color={gameState.discard_pile[gameState.discard_pile.length - 1].color}
                   value={gameState.discard_pile[gameState.discard_pile.length - 1].value}
@@ -134,9 +140,10 @@ const GameView = () => {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <CardRow>
             {player?.hand?.map((card, index) => (
-              <div key={index} className='card-container'>
+              <div key={`card_hand_index_${card.id}`} className='card-container'>
                 <div style={{ width: '190px' }}>
                   <Card
+                    id={card.id.toString()}
                     color={card.color}
                     value={card.value}
                     selectable={isMyTurn && canPlayCard(card)}
@@ -145,7 +152,7 @@ const GameView = () => {
                     cardIsSelected={selectedCards.includes(card)}
                     flip={false}
                     rotationY={0}
-                    cardBeingPlayed={cardBeingPlayed?.id === card.id}
+                    cardBeingPlayed={cardsBeingPlayed.includes(card)}
                   />
                 </div>
               </div>
