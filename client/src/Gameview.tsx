@@ -3,6 +3,7 @@ import { ICard, useWebSocket } from './WebSocketContext'
 import { useNavigate } from 'react-router-dom'
 import Card from './components/Card/Card'
 import styled from 'styled-components'
+import { Button } from '@nextui-org/button'
 // import Card from './components/Card/Card'
 
 interface CardRowProps {
@@ -108,16 +109,12 @@ const GameView = () => {
   }
 
   return (
-    <div>
-      <h1>Game View</h1>
-      <h3>{player?.id}</h3>
-
+    <div style={{ padding: 50 }}>
       <div>
-        <h2>Top Card in Pile</h2>
         {gameState?.discard_pile.length ? (
           <div>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: '190px' }} id='discard-pile'>
+              <div style={{ width: '110px' }} id='discard-pile'>
                 <Card
                   color={gameState.discard_pile[gameState.discard_pile.length - 1].color}
                   value={gameState.discard_pile[gameState.discard_pile.length - 1].value}
@@ -136,12 +133,11 @@ const GameView = () => {
         )}
       </div>
       <div>
-        <h2>Your Hand</h2>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 100 }}>
           <CardRow>
             {player?.hand?.map((card, index) => (
               <div key={`card_hand_index_${card.id}`} className='card-container'>
-                <div style={{ width: '190px' }}>
+                <div style={{ width: '110px' }}>
                   <Card
                     id={card.id.toString()}
                     color={card.color}
@@ -165,25 +161,25 @@ const GameView = () => {
           {showColorModal && (
             <div className='color-modal'>
               <h3>Select a color for the Wild card:</h3>
-              <button onClick={() => handleColorSelect('Red')}>Red</button>
-              <button onClick={() => handleColorSelect('Blue')}>Blue</button>
-              <button onClick={() => handleColorSelect('Green')}>Green</button>
-              <button onClick={() => handleColorSelect('Yellow')}>Yellow</button>
+              <Button onClick={() => handleColorSelect('Red')}>Red</Button>
+              <Button onClick={() => handleColorSelect('Blue')}>Blue</Button>
+              <Button onClick={() => handleColorSelect('Green')}>Green</Button>
+              <Button onClick={() => handleColorSelect('Yellow')}>Yellow</Button>
             </div>
           )}
           <div>
-            <button disabled={selectedCards.length === 0} onClick={playSelectedCards}>
+            <Button disabled={selectedCards.length === 0} onClick={playSelectedCards}>
               Play Selected Cards
-            </button>
+            </Button>
           </div>
           <div>
             <h2>Draw a card</h2>
-            {isMyTurn ? <button onClick={drawCard}>Draw Card</button> : null}
+            {isMyTurn ? <Button onClick={drawCard}>Draw Card</Button> : null}
           </div>
         </>
       )}
       <div>
-        <button onClick={() => navigate('/')}>Back to Lobby</button>
+        <Button onClick={() => navigate('/')}>Back to Lobby</Button>
       </div>
     </div>
   )

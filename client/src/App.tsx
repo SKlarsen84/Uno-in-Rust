@@ -5,6 +5,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import GameView from './Gameview'
 import { WebSocketProvider } from './WebSocketContext'
 import styled from 'styled-components'
+import { NextUIProvider } from '@nextui-org/react'
+import 'tailwindcss/tailwind.css'
 
 const Root = styled.div`
   min-height: 100vh;
@@ -16,19 +18,20 @@ const Root = styled.div`
 
 const App: React.FC = () => {
   return (
-    <Root>
-      <Router>
-        <WebSocketProvider>
-          <Routes>
-            <Route path='/' element={<Lobby />} />
-            <Route path='/game/:gameId' element={<GameView />} />
-          </Routes>
-        </WebSocketProvider>
-      </Router>
-    </Root>
+    <NextUIProvider>
+      <Root>
+        <Router>
+          <WebSocketProvider>
+            <Routes>
+              <Route path='/' element={<Lobby />} />
+              <Route path='/game/:gameId' element={<GameView />} />
+            </Routes>
+          </WebSocketProvider>
+        </Router>
+      </Root>
+    </NextUIProvider>
   )
 }
 
 export default App
-
 

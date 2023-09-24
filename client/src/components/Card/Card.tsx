@@ -43,7 +43,7 @@ const Root = styled.div<RootProps>`
 
     .value {
       position: absolute;
-      top: 25%;
+      top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       color: var(--color);
@@ -176,9 +176,6 @@ export default function Card({
       const discardPileElement = document.getElementById('discard-pile')
 
       if (cardElement && discardPileElement) {
-        console.log(`Animating card with ID: ${id}`)
-        console.log('Card Element:', cardElement)
-        console.log('Discard Pile Element:', discardPileElement)
 
         const cardRect = cardElement.getBoundingClientRect()
         const discardPileRect = discardPileElement.getBoundingClientRect()
@@ -275,7 +272,6 @@ export default function Card({
           <Image src={`../assets/images/backside.png`} ratio={590 / 418} />
         </div>
       </Root>
-      <Button onClick={() => setCheckAnimation(!checkAnimation)}>Click me</Button>
     </motion.div>
   )
 }
