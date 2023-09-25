@@ -14,7 +14,7 @@ type RootProps = {
 const Root = styled.div<RootProps>`
   /* overflow: hidden; */
   padding-top: 141%;
-  border-radius: calc(var(--cardWidth) / 10);
+  border-radius:7px;
 
   box-shadow: ${(props: { disableShadow?: any }) => (!props.disableShadow ? '0 0 10px #292727' : 'none')};
   position: relative;
@@ -26,7 +26,7 @@ const Root = styled.div<RootProps>`
 
   .front,
   .back {
-    border-radius: calc(var(--cardWidth) / 10);
+    border-radius: 7px;
     background: whitesmoke;
     position: absolute;
     top: 0;
@@ -271,7 +271,6 @@ export default function Card({
           <Image src={`../assets/images/backside.png`} ratio={590 / 418} />
         </div>
       </Root>
-      {value} {color}
     </motion.div>
   )
 }

@@ -4,9 +4,8 @@ import { useNavigate } from 'react-router-dom'
 interface IPlayer {
   id: number
   name: string
+  card_count: number
   hand?: ICard[]
-  current_game?: number
-  is_spectator?: boolean
 }
 
 export interface ICard {
@@ -29,6 +28,7 @@ interface WebSocketContextProps {
     deck_size: number
     player_count: number
     id: number
+    players: IPlayer[]
   }
   isMyTurn: boolean
 }
@@ -56,6 +56,7 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
     discard_pile: ICard[]
     deck_size: number
     player_count: number
+    players: IPlayer[]
   }>({
     id: 0,
     round_in_progress: false,
@@ -63,7 +64,8 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
     direction: 1,
     discard_pile: [],
     deck_size: 102,
-    player_count: 0
+    player_count: 0,
+    players: []
   })
   const [isMyTurn, setIsMyTurn] = useState<boolean>(false)
   const navigate = useNavigate()
@@ -105,6 +107,7 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
             setPlayer(data)
             break
           case 'update_game_state':
+            console.log('Received game state:', data)
             setGameState(data)
             break
           case 'your_turn':
@@ -132,7 +135,7 @@ export const WebSocketProvider: React.FC<IWebSocketProviderProps> = ({ children 
   }, [])
 
   return (
-    <WebSocketContext.Provider value={{ ws, games, player, players, gameState, isMyTurn }}>
+    <WebSocketContext.Provider value={{ ws, games, player, players: gameState.players, gameState, isMyTurn }}>
       {children}
     </WebSocketContext.Provider>
   )

@@ -174,8 +174,7 @@ pub async fn handle_connection(
 
                             "play_cards" => {
                               
-                                //we will be getting a string from the client, so we need to convert it to a card              
-
+                            //we will be getting a string from the client, so we need to convert it to a card              
                              if let Some(card_json) = &client_msg.cards {
                                 match serde_json::from_value::<Vec<Card>>(card_json.clone()) {
                                     Ok(cards) => {
