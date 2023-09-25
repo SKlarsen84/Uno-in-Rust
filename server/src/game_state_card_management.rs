@@ -48,9 +48,12 @@ impl GameState {
         self.validate_card_play(player_id, &first_card)?;
 
         //having made sure the first card is valid, we can now check that all cards in the vector are the same value as the first card
-        if !cards.iter().all(|card| card.value == first_card.value && self.is_valid_play(card)) {
+        if !cards.iter().all(|card| card.value == first_card.value) {
+            println!("Invalid cards played - not all cards are the same value");
             return Err("Invalid cards");
         }
+
+        //having made sure the first card is valid, we can now check that all cards in the vector are the same color as the first card
 
         // Find and remove the cards from the player's hand
         let mut played_cards: Vec<Card> = Vec::new();
@@ -72,11 +75,14 @@ impl GameState {
                                 value: card.value.clone(),
                             });
                         } else {
+                            println!("Card played: {:?}", card);
                             played_cards.push(card.clone());
                         }
                         //ultimately, we need to remove the card from the player's hand
                         player_conn.player.hand.remove(pos);
+                        println!("Player {} played card: {:?}", player_id, card);
                     } else {
+                        println!("Card not in hand");
                         return Err("Card not in hand");
                     }
                 }

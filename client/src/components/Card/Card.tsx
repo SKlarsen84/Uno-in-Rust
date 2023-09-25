@@ -176,7 +176,6 @@ export default function Card({
       const discardPileElement = document.getElementById('discard-pile')
 
       if (cardElement && discardPileElement) {
-
         const cardRect = cardElement.getBoundingClientRect()
         const discardPileRect = discardPileElement.getBoundingClientRect()
 
@@ -272,6 +271,7 @@ export default function Card({
           <Image src={`../assets/images/backside.png`} ratio={590 / 418} />
         </div>
       </Root>
+      {value} {color}
     </motion.div>
   )
 }

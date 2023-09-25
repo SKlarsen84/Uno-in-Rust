@@ -154,6 +154,7 @@ const GameView = () => {
               </div>
             ))}
           </CardRow>
+          {JSON.stringify(player?.hand)}
         </div>
       </div>
       {isMyTurn && (
