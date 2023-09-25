@@ -54,6 +54,9 @@ impl GameState {
         let message = create_websocket_message("your_turn", &your_turn_json);
         //update the game's player_to_pl
         self.game_player_pool.send_message(&next_player, message).await;
+
+        //update the game state for all players
+        let _ = self.update_game_state().await;
     }
 
     // HELPER FUNCTIONS

@@ -81,7 +81,8 @@ impl GameState {
         self.game_player_pool.send_message(&player, message).await;
     }
 
-    //function to let players receive an update about the game state via the pool connection
+    //function to let players receive an update about the game state via the pool connection.
+    //should also contain a list of players with id's and a count of how many cards they hold in their hand
     pub async fn update_game_state(&self) {
         //build a json object with the game status details
         let info_object =
@@ -93,6 +94,10 @@ impl GameState {
             "discard_pile": self.discard_pile,
             "deck_size": self.deck.cards.len(),
             "player_count": self.game_player_pool.connections.len(),
+            "players": self.game_player_pool.connections
+                .iter()
+                .map(|conn| conn.player.to_serializable())
+                .collect::<Vec<SerializablePlayer>>(),
         });
 
         let game_state_data_json = serde_json::to_string(&info_object).unwrap();

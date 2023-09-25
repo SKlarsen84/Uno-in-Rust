@@ -14,6 +14,7 @@ pub struct Player {
 pub struct SerializablePlayer {
     pub id: usize,
     pub name: String,
+    pub card_count: usize,
 }
 
 impl Player {
@@ -56,6 +57,7 @@ impl Player {
         SerializablePlayer {
             id: self.id,
             name: self.name.clone(),
+            card_count: self.hand.len(),
         }
     }
 
